@@ -1,0 +1,9 @@
+README-R&D spending
+
+RDStateSpace.R is the main file which read in data, set up date variables, and adds industry averages and normalized spending to the dataset. Form there, various cleaned versions are created and test run:
+
+	CLEAN DATA section creates a dataset with only those companies that have at least 8 data points and saves these by industry so long as the industry group has at least 50 data points. We also create a 3-company test-file and sample input for MARSS. A small test set for STATA is also created. 
+
+	STATE SPACE section runs the state space model using MARSS.
+
+	STATIONARITY TESTINS runs stationarity test. First identify companies with 8 non0missing data points, then test stationarity using various normalizations of R&D spending. Create plots for firms with the most data points. 

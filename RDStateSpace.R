@@ -1,7 +1,7 @@
 #NOTES:======================================================================
 
 #libraries and functions====================================================================
-  #library(plyr)
+  library(plyr)
   library(ggplot2)
   library(descr)
   library(tseries)
@@ -68,14 +68,21 @@
       #put this in MARSS form
         inputData = ddply(industryData, ~datayear, 
           function(df) {
-            res = data.frame(rbind(df$xrd))
+            res = data.frame(rbind(df$xrdAdjbyInd))
             names(res) = sprintf("%s",df$gvkey)
             res
           }
         )
+        inputData2 = ddply(industryData, ~datayear, 
+                  function(df) {
+                    res = data.frame(rbind(df$npatapp))
+                    names(res) = sprintf("%s",df$gvkey)
+                    res
+                  }
+        )
 
   #create very small test dataset for STATA
-    TEST_DATA = RDDATA[,c("iyID", "datadate", "sic", "xrd", "gvkey", "npatapp", "npatgrant", "xrdAdj", "xrdAdjbyInd")]
+    TEST_DATA = RDDATA2[,c("iyID", "datadate", "sic", "xrd", "gvkey", "npatapp", "npatgrant", "xrdAdj", "xrdAdjbyInd")]
     FREQTABLE = freq(ordered(TEST_DATA$gvkey), plot=FALSE)
     FREQTABLE = data.frame(gvkey = as.factor(rownames(FREQTABLE)), freq = FREQTABLE[,1])
     TEST_DATA = merge(x = TEST_DATA, y = FREQTABLE, by = "gvkey", all.x = TRUE)
@@ -86,26 +93,71 @@
     write.csv(TEST_DATA_SMALL, "C:/Users/Katharina/Documents/Umich/rdspend/test_data_small.csv")
     write.csv(TEST_DATA_SINGLE, "C:/Users/Katharina/Documents/Umich/rdspend/test_data_single.csv")
     
+  #save workspace
+    save.image(file = "cleandata.RData")
+  
 #state space========================================================================================
   #fix input data
-    model.data = inputData[-c(1)]
+    numCos = ncol(inputData)-1
+    model.data = inputData[-c(1)] #delete time entry
+    model.data2 =inputData2[-c(1)]
     model.data = as.matrix(model.data)
+    model.data2 = as.matrix(model.data2)
     model.data = t(model.data)
+    model.data2 = t(model.data2)
+    model.data2 = rbind(model.data, model.data2)
 
-  #define inputs  
-    #B will be the identity matrix
-    #U will be "all unequal"
-    Q1 = matrix(c("q11","q12","q13","q21","q22","q23","q31","q32","q33"), 3,3)
-    #Z1 = factor(c(1,1,1)) #this doesn't work, but Z is identity by default
-    #A will be all zero
-    R1 = matrix(c("r11","r12","r13","r21","r22","r23","r31","r32","r33"), 3,3)
-    #initialX = matrix(0,3,1) #TBD default is if unspecified they are treated as estimated initial states with 0 variance--ok
-    #initialX = diag(1,2) #TBD
-    model.list = list(B= "identity", U = "unequal", Q = Q1, A = "zero", R = R1)
-  #run model  
-    model = MARSS(model.data, model = model.list)
+  #run MARSS with default values, to ensure it works
+    default.model = MARSS(model.data) #no convergence, error if I use xrdAdj instead of just xrd, works with xrdIndAdj
 
-  #input data must bs structured incorrectly because i have way too many dimensions
+  #run MARSS with reasonable specification and only noisy signal input
+    #define inputs
+      #state equation
+        #B will be a diagonal matrix
+          B1 = "diagonal and unequal"
+        #U will be unconstrained
+          U1 = "unconstrained"
+        #Q will be unconstrained
+          Q1 = "unconstrained"
+      #observation equation
+        #Z will have stacked diagonal structure
+          Z1 = matrix(c(1,0,0,0,1,0,0,0,1), 3, 3)
+        #a will be constrained such that every other one is the same (every N and every X signal)
+          A1 = "unconstrained"
+        #R will be diagonal and unequal
+          R1 = "diagonal and unequal"
+      #initial values
+        #initial values will be default for now
+      #model list
+      model.list = list(B=B1, U =U1, Q=Q1, Z=Z1, A=A1, R=R1)
+    
+    #run model  
+      singleObs.model = MARSS(model.data, model = model.list) #this runs but still some convergence issues, does not run for xrdAdj or xrdAdjbyInd
+        #allowing diagnoal Z's to be ! = 1  causes it to be underconstrained
+
+  #run MARSS with one reasonable specification and both signal inputs
+    #define inputs
+      #state equation
+        #B will be a diagonal matrix
+        B1 = "diagonal and unequal"
+        #U will be unconstrained
+        U1 = "unconstrained"
+        #Q will be unconstrained
+        Q1 = "unconstrained"
+      #observation equation
+        #Z will have stacked diagonal structure, but with all of one signal type first, then all of second
+        Z1 = matrix(c(1,0,0,1,0,0,0,1,0,0,1,0,0,0,1,0,0,1), 6, 3)
+        #a will be constrained such that every other one is the same (every N and every X signal)
+        A1 = "unconstrained"
+        #R will be diagonal and unequal
+        R1 = "diagonal and unequal"
+      #initial values
+        #initial values will be default for now
+      #model list
+        model.list = list(B=B1, U =U1, Q=Q1, Z=Z1, A=A1, R=R1)
+  
+    #run model  
+      twoObs.model = MARSS(model.data2, model = model.list) #Q update becomes unstable
 
 #stationarity testing===================================================================================
   #identify and plot companies with at least 8 non-missing data points

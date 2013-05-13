@@ -45,6 +45,12 @@
     RDONLYTEST = RDONLYTEST[RDONLYTEST$freq >= 8,]
     write.csv(RDONLYTEST, "C:/Users/Katharina/Documents/Umich/rdspend/RDDATA-EIGHT.csv")
     write.csv(FREQTABLE, "C:/Users/Katharina/Documents/Umich/rdspend/freqtable.csv")
+
+  #create de-meaned data for xrdAdj and patents applied
+    AVGTABLE = ddply(RDONLYTEST,~gvkey,summarise,meanXrdAdj=mean(xrdAdj),meanNpatApp=mean(npatapp))
+    RDONLYTEST = merge(x = RDONLYTEST, y = AVGTABLE, by = "gvkey", all.x = TRUE)
+    RDONLYTEST$xrdAdjDemean = RDONLYTEST$xrdAdj = RDONLYTEST$meanXrdAdj
+    RDONLYTEST$npatappDemean = RDONLYTEST$npatapp = RDONLYTEST$meanNpatApp
   
   #create output file by industry and save if industry has more than 50 entries
     indList = levels(factor(RDONLYTEST$sic))
@@ -68,7 +74,7 @@
       #put this in MARSS form
         inputData = ddply(industryData, ~datayear, 
           function(df) {
-            res = data.frame(rbind(df$xrdAdjbyInd))
+            res = data.frame(rbind(df$xrdAdj)) #take R&D spending as a percentage of sales
             names(res) = sprintf("%s",df$gvkey)
             res
           }

@@ -123,23 +123,23 @@
       singleObs.model = MARSS(model.data, model = model.list) #runs with same R too close to zero error
         #allowing diagnoal Z's to be != 1  causes it to be underconstrained
   
-  #run MARSS with reasonable specification and only two inputs
+  #run MARSS with reasonable specification and two inputs, not de-meaned
     #define inputs
       #state equation
-        #B will be a identity
+        #B is identity, since we assume autoregressive nature
           B1 = "identity"
-        #U will be unconstrained
-          U1 = "unconstrained"
-        #Q will be unconstrained
+        #U is zero, since we assume no trend
+          U1 = "zero"
+        #Q is unconstrained, allowing movement in actual r and d to be correlated
           Q1 = "equalvarcov"
       #observation equation
-        #Z is the stacked identity structure to account for two inputs
+        #Z is the stacked identity structure to account for two inputs; we allow upward or downward shift through a so can have identity here
           source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getZ.R")
           Z1 = getZ(numCos, "identity") #options are identity or diagonal
-        #a is unconstrained since we do not have de-meaned data, meaning that average of our data is not zero. We cannot de-mean when we have missing data
-          A1 = "zero"
-        #R will be diagonal and unequal
-          R1 = "diagonal and equal"
+        #a is unconstrained since we do not have de-meaned data; this also adjusts for order of magnitude differences in the npatt data and allows for intrinsic up or down bias
+          A1 = "unconstrained"
+        #R allows each company to have its own error in signals--each company has different bias in reporting
+          R1 = "diagonal and unequal"
       #initial values
         #initial values will be default, meaning that we assume that initial states are an estimated parameter with zero variance
     #model list

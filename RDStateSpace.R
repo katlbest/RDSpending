@@ -100,21 +100,19 @@
     model.data2 = t(model.data2)
     model.data2 = rbind(model.data, model.data2)
   
-  #run MARSS with reasonable specification and two inputs, not de-meaned
+  #run MARSS with reasonable specification and single input
     #define inputs
       #state equation
         #B is identity, since we assume autoregressive nature
           B1 = "identity"
         #U is zero, since we assume no trend
           U1 = "zero"
-        #Q is unconstrained, allowing movement in actual r and d to be correlated
+        #Q is constrained to allow a constant variance for each company in the same industry, and a set covariance between companies
           Q1 = "equalvarcov"
       #observation equation
-        #Z is the stacked identity structure to account for two inputs; we allow upward or downward shift through a so can have identity here
-          source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getZ.R")
-          #Z1 = matrix(getZ(numCos, "diagonal"), numCos, 2*numCos) #options are identity or diagonal
+        #Z adjusts for the bias in the signal, which is the same across industry
           Z1 = "diagonal and equal"
-        #a is unconstrained since we do not have de-meaned data; this also adjusts for order of magnitude differences in the npatt data and allows for intrinsic up or down bias
+        #a is zero--signals are centered around the true value
           A1 = "zero"
         #R allows each company to have its own error in signals--each company has different bias in reporting
           R1 = "diagonal and equal"
@@ -125,7 +123,80 @@
       #control.list = list(allow.degen = TRUE, trace =1)
       control.list = list(safe = TRUE, trace =1, allow.degen= TRUE)
     #run model  
-      twoObs.model = MARSS(model.data, model = model.list, miss.value =NA, contol = control.list) #runs but does not converge
+      singleObs.model = MARSS(model.data, model = model.list, miss.value =NA, contol = control.list) #runs but does not converge
+      singleObs.model=MARSSparamCIs(singleObs.model)
+      plotData =data.frame(t(singleObs.model$states))
+      seData = t(singleObs.model$states.se[,1])
+      origData = data.frame(t(model.data))
+      nameVect = c(1:ncol(origData))
+      nameVect = paste("orig", nameVect, sep = "")
+      colnames(origData) = nameVect
+      plotData$time = c(1:nrow(plotData))
+      plotData = cbind(plotData, origData)
+      plotData$lb = plotData$state1 - seData[1] 
+      plotData$ub = plotData$state1 + seData[1] 
+      ggplot(data=plotData, aes(x=time, y=state1)) + geom_line() + geom_point(aes(x = time, y = orig1)) + geom_line(aes(x = time, y = lb), plotData, lty = 'dashed')+ geom_line(aes(x = time, y = ub), plotData, lty = 'dashed')+theme_bw()
+
+    #run MARSS with reasonable specification and both inputs--nochange in R, identity Z1
+      #define inputs that change
+        #Z is the stacked identity structure to account for two inputs; we allow upward or downward shift through a so can have identity here
+          source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getZ.R")
+          Z1 = getZ(numCos, "identity")
+      #set up model
+        model.list = list(B=B1, U =U1, Q=Q1, Z=Z1, A=A1, R=R1)
+        control.list = list(safe = TRUE, trace =1, allow.degen= TRUE)
+      #run model  
+        twoObsIDZ.model = MARSS(model.data2, model = model.list, miss.value =NA, contol = control.list) #runs but does not converge
+
+    #run MARSS with reasonable specification and both inputs--nochange in R, diagonatl Z1
+      #define inputs that change
+        #Z is the stacked identity structure to account for two inputs; we allow upward or downward shift through a so can have identity here
+          source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getZ.R")
+          Z1 = getZ(numCos, "diagonal")
+      #set up model
+      model.list = list(B=B1, U =U1, Q=Q1, Z=Z1, A=A1, R=R1)
+      control.list = list(safe = TRUE, trace =1, allow.degen= TRUE)
+      #run model  
+      twoObsDiagZ.model = MARSS(model.data2, model = model.list, miss.value =NA, contol = control.list) #runs but does not converge
+
+
+#run MARSS with reasonable specification and both inputs--nochange in R, identity Z1
+  #define inputs that change
+    #Z is the stacked identity structure to account for two inputs; we allow upward or downward shift through a so can have identity here
+    source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getZ.R")
+    Z1 = getZ(numCos, "identity")
+    #change R so that you can have different errors for different types of signals
+    source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getR.R")
+    R1 = getR(numCos)
+  #set up model
+    model.list = list(B=B1, U =U1, Q=Q1, Z=Z1, A=A1, R=R1)
+   control.list = list(safe = TRUE, trace =1, allow.degen= TRUE)
+  #run model  
+    twoObsIDZNewR.model = MARSS(model.data2, model = model.list, miss.value =NA, contol = control.list) #runs but does not converge
+
+#run MARSS with reasonable specification and both inputs--nochange in R, diagonatl Z1
+  #define inputs that change
+    #Z is the stacked identity structure to account for two inputs; we allow upward or downward shift through a so can have identity here
+      source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getZ.R")
+      Z1 = getZ(numCos, "diagonal")
+      source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getR.R")
+      R1 = getR(numCos)
+  #set up model
+    model.list = list(B=B1, U =U1, Q=Q1, Z=Z1, A=A1, R=R1)
+    control.list = list(safe = TRUE, trace =1, allow.degen= TRUE)
+  #run model  
+    twoObsDiagZNewR.model = MARSS(model.data2, model = model.list, miss.value =NA, contol = control.list) #lowest AIC
+    plotData =data.frame(t(twoObsDiagZNewR.model$states))
+    seData = t(twoObsDiagZNewR.model$states.se[,1])
+    origData = data.frame(t(model.data))
+    nameVect = c(1:ncol(origData))
+    nameVect = paste("orig", nameVect, sep = "")
+    colnames(origData) = nameVect
+    plotData$time = c(1:nrow(plotData))
+    plotData = cbind(plotData, origData)
+    plotData$lb = plotData$state1 - seData[1] 
+    plotData$ub = plotData$state1 + seData[1] 
+    ggplot(data=plotData, aes(x=time, y=state1)) + geom_line() + geom_point(aes(x = time, y = orig1)) + geom_line(aes(x = time, y = lb), plotData, lty = 'dashed')+ geom_line(aes(x = time, y = ub), plotData, lty = 'dashed')+theme_bw()
 
 #stationarity testing===================================================================================
   #identify and plot companies with at least 8 non-missing data points

@@ -95,33 +95,6 @@
     model.data = t(model.data)
     model.data2 = t(model.data2)
     model.data2 = rbind(model.data, model.data2)
-
-  #run MARSS with default values and only the RD spend data
-    default.model = MARSS(model.data) #solution achieved, but warnings that R is too close to zero--probably wrong specification
-
-  #run MARSS with reasonable specification and only one input
-    #define inputs
-      #state equation
-        #B will be a diagonal matrix
-          B1 = "identity"
-        #U will be unconstrained
-          U1 = "unconstrained"
-        #Q will be unconstrained
-          Q1 = "unconstrained"
-      #observation equation
-        #Z is diagonal
-          Z1 = "identity"
-        #a is unconstrained since we do not have de-meaned data, meaning that average of our data is not zero. We cannot de-mean when we have missing data
-          A1 = "unconstrained"
-        #R will be diagonal and unequal
-          R1 = "diagonal and equal"
-      #initial values
-        #initial values will be default, meaning that we assume that initial states are an estimated parameter with zero variance
-      #model list
-      model.list = list(B=B1, U =U1, Q=Q1, Z=Z1, A=A1, R=R1)
-    #run model  
-      singleObs.model = MARSS(model.data, model = model.list) #runs with same R too close to zero error
-        #allowing diagnoal Z's to be != 1  causes it to be underconstrained
   
   #run MARSS with reasonable specification and two inputs, not de-meaned
     #define inputs

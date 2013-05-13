@@ -32,10 +32,11 @@
   colnames(AvgRD)= c("iyID", "IndAvg")
   RDDATA2<- merge(x = RDDATA, y = AvgRD, by = "iyID", all.x = TRUE) #some will have NA for iyID?
   RDDATA2$xrdAdjbyInd = RDDATA2$xrdAdj-RDDATA2$IndAvg
+  RDDATA2$npatappAdj = RDDATA2$npatapp/RDDATA2$sale
 
 #clean data=======================================================================
   #get clean dataset--only data with at least 8 entries
-    RDONLY = data.frame(gvkey = RDDATA2$gvkey, xrdAdj = RDDATA2$xrdAdj, datadate = RDDATA2$datadate, xrdAdjNormalized = RDDATA2$xrdAdjNormalized, xrd = RDDATA2$xrd, IndAvg = RDDATA2$IndAvg, xrdAdjbyInd = RDDATA2$xrdAdjbyInd, sic = RDDATA2$sic, npatgrant = RDDATA2$npatgrant, npatapp = RDDATA2$npatapp, datayear = RDDATA2$datayear)
+    RDONLY = data.frame(gvkey = RDDATA2$gvkey, xrdAdj = RDDATA2$xrdAdj, datadate = RDDATA2$datadate, xrdAdjNormalized = RDDATA2$xrdAdjNormalized, xrd = RDDATA2$xrd, IndAvg = RDDATA2$IndAvg, xrdAdjbyInd = RDDATA2$xrdAdjbyInd, sic = RDDATA2$sic, npatgrant = RDDATA2$npatgrant, npatapp = RDDATA2$npatapp, datayear = RDDATA2$datayear, npatappAdj = RDDATA2$npatappAdj)
     RDONLY = RDONLY[order(RDONLY$gvkey),]
     NOMISS = na.exclude(RDONLY)
     FREQTABLE = freq(ordered(NOMISS$gvkey), plot=FALSE)
@@ -45,12 +46,6 @@
     RDONLYTEST = RDONLYTEST[RDONLYTEST$freq >= 8,]
     write.csv(RDONLYTEST, "C:/Users/Katharina/Documents/Umich/rdspend/RDDATA-EIGHT.csv")
     write.csv(FREQTABLE, "C:/Users/Katharina/Documents/Umich/rdspend/freqtable.csv")
-
-  #create de-meaned data for xrdAdj and patents applied
-    AVGTABLE = ddply(RDONLYTEST,~gvkey,summarise,meanXrdAdj=mean(xrdAdj),meanNpatApp=mean(npatapp))
-    RDONLYTEST = merge(x = RDONLYTEST, y = AVGTABLE, by = "gvkey", all.x = TRUE)
-    RDONLYTEST$xrdAdjDemean = RDONLYTEST$xrdAdj = RDONLYTEST$meanXrdAdj
-    RDONLYTEST$npatappDemean = RDONLYTEST$npatapp = RDONLYTEST$meanNpatApp
   
   #create output file by industry and save if industry has more than 50 entries
     indList = levels(factor(RDONLYTEST$sic))
@@ -69,7 +64,7 @@
       #industry is 100
       industryIndex = which(nameVector == 100)
       industryData = dataList[[industryIndex]]
-      industryData = industryData[industryData$freq==12,]
+      #industryData = industryData[industryData$freq==12,]
       
       #put this in MARSS form
         inputData = ddply(industryData, ~datayear, 
@@ -81,24 +76,12 @@
         )
         inputData2 = ddply(industryData, ~datayear, 
                   function(df) {
-                    res = data.frame(rbind(df$npatapp))
+                    res = data.frame(rbind(df$npatappAdj))
                     names(res) = sprintf("%s",df$gvkey)
                     res
                   }
         )
 
-  #create very small test dataset for STATA
-    TEST_DATA = RDDATA2[,c("iyID", "datadate", "sic", "xrd", "gvkey", "npatapp", "npatgrant", "xrdAdj", "xrdAdjbyInd")]
-    FREQTABLE = freq(ordered(TEST_DATA$gvkey), plot=FALSE)
-    FREQTABLE = data.frame(gvkey = as.factor(rownames(FREQTABLE)), freq = FREQTABLE[,1])
-    TEST_DATA = merge(x = TEST_DATA, y = FREQTABLE, by = "gvkey", all.x = TRUE)
-    TEST_DATA = TEST_DATA[TEST_DATA$freq >= 27,]
-    TEST_DATA_SMALL = TEST_DATA[1:(27*5),]
-    TEST_DATA_SINGLE = TEST_DATA[1:27,]
-    
-    write.csv(TEST_DATA_SMALL, "C:/Users/Katharina/Documents/Umich/rdspend/test_data_small.csv")
-    write.csv(TEST_DATA_SINGLE, "C:/Users/Katharina/Documents/Umich/rdspend/test_data_single.csv")
-    
   #save workspace
     save.image(file = "cleandata.RData")
   
@@ -113,57 +96,58 @@
     model.data2 = t(model.data2)
     model.data2 = rbind(model.data, model.data2)
 
-  #run MARSS with default values, to ensure it works
-    default.model = MARSS(model.data) #no convergence, error if I use xrdAdj instead of just xrd, works with xrdIndAdj
+  #run MARSS with default values and only the RD spend data
+    default.model = MARSS(model.data) #solution achieved, but warnings that R is too close to zero--probably wrong specification
 
-  #run MARSS with reasonable specification and only noisy signal input
+  #run MARSS with reasonable specification and only one input
     #define inputs
       #state equation
         #B will be a diagonal matrix
-          B1 = "diagonal and unequal"
+          B1 = "identity"
         #U will be unconstrained
           U1 = "unconstrained"
         #Q will be unconstrained
           Q1 = "unconstrained"
       #observation equation
-        #Z will have stacked diagonal structure
-          Z1 = matrix(c(1,0,0,0,1,0,0,0,1), 3, 3)
-        #a will be constrained such that every other one is the same (every N and every X signal)
+        #Z is diagonal
+          Z1 = "identity"
+        #a is unconstrained since we do not have de-meaned data, meaning that average of our data is not zero. We cannot de-mean when we have missing data
           A1 = "unconstrained"
         #R will be diagonal and unequal
-          R1 = "diagonal and unequal"
+          R1 = "diagonal and equal"
       #initial values
-        #initial values will be default for now
+        #initial values will be default, meaning that we assume that initial states are an estimated parameter with zero variance
       #model list
       model.list = list(B=B1, U =U1, Q=Q1, Z=Z1, A=A1, R=R1)
-    
     #run model  
-      singleObs.model = MARSS(model.data, model = model.list) #this runs but still some convergence issues, does not run for xrdAdj or xrdAdjbyInd
-        #allowing diagnoal Z's to be ! = 1  causes it to be underconstrained
-
-  #run MARSS with one reasonable specification and both signal inputs
+      singleObs.model = MARSS(model.data, model = model.list) #runs with same R too close to zero error
+        #allowing diagnoal Z's to be != 1  causes it to be underconstrained
+  
+  #run MARSS with reasonable specification and only two inputs
     #define inputs
       #state equation
-        #B will be a diagonal matrix
-        B1 = "diagonal and unequal"
+        #B will be a identity
+          B1 = "identity"
         #U will be unconstrained
-        U1 = "unconstrained"
+          U1 = "unconstrained"
         #Q will be unconstrained
-        Q1 = "unconstrained"
+          Q1 = "equalvarcov"
       #observation equation
-        #Z will have stacked diagonal structure, but with all of one signal type first, then all of second
-        Z1 = matrix(c(1,0,0,1,0,0,0,1,0,0,1,0,0,0,1,0,0,1), 6, 3)
-        #a will be constrained such that every other one is the same (every N and every X signal)
-        A1 = "unconstrained"
+        #Z is the stacked identity structure to account for two inputs
+          source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getZ.R")
+          Z1 = getZ(numCos, "identity") #options are identity or diagonal
+        #a is unconstrained since we do not have de-meaned data, meaning that average of our data is not zero. We cannot de-mean when we have missing data
+          A1 = "zero"
         #R will be diagonal and unequal
-        R1 = "diagonal and unequal"
+          R1 = "diagonal and equal"
       #initial values
-        #initial values will be default for now
-      #model list
-        model.list = list(B=B1, U =U1, Q=Q1, Z=Z1, A=A1, R=R1)
-  
+        #initial values will be default, meaning that we assume that initial states are an estimated parameter with zero variance
+    #model list
+      model.list = list(B=B1, U =U1, Q=Q1, Z=Z1, A=A1, R=R1)
+      #control.list = list(allow.degen = TRUE, trace =1)
+      control.list = list(safe = TRUE, trace =1, allow.dege= TRUE)
     #run model  
-      twoObs.model = MARSS(model.data2, model = model.list) #Q update becomes unstable
+      twoObs.model = MARSS(model.data2, model = model.list, miss.value =NA, contol = control.list) #runs but does not converge
 
 #stationarity testing===================================================================================
   #identify and plot companies with at least 8 non-missing data points

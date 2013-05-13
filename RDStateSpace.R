@@ -104,7 +104,7 @@
     #define inputs
       #state equation
         #B is identity, since we assume autoregressive nature
-          B1 = "diagonal and equal"
+          B1 = "identity"
         #U is zero, since we assume no trend
           U1 = "zero"
         #Q is unconstrained, allowing movement in actual r and d to be correlated

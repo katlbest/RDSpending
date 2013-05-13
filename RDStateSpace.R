@@ -33,6 +33,10 @@
   RDDATA2<- merge(x = RDDATA, y = AvgRD, by = "iyID", all.x = TRUE) #some will have NA for iyID?
   RDDATA2$xrdAdjbyInd = RDDATA2$xrdAdj-RDDATA2$IndAvg
   RDDATA2$npatappAdj = RDDATA2$npatapp/RDDATA2$sale
+  #AVGTABLE = ddply(RDDATA2,~gvkey,summarise,meanNpa=mean(npatappAdj),sdNpa=sd(npatappAdj), meanXrdAdj = mean(xrdAdj), sdXrdAdj = sd(xrdAdj))
+  #RDDATA2 = merge(x = RDDATA2, y = AVGTABLE, by = "gvkey", all.x = TRUE)
+  #RDDATA2$npatappZ = (RDDATA2$npatappAdj-meanNpa)/sdNpa
+  #RDDATA2$xrdZ= RDDATA2$xrdAdj- meanXrdAdj/sdXrdAdj
 
 #clean data=======================================================================
   #get clean dataset--only data with at least 8 entries
@@ -100,7 +104,7 @@
     #define inputs
       #state equation
         #B is identity, since we assume autoregressive nature
-          B1 = "identity"
+          B1 = "diagonal and equal"
         #U is zero, since we assume no trend
           U1 = "zero"
         #Q is unconstrained, allowing movement in actual r and d to be correlated
@@ -108,19 +112,20 @@
       #observation equation
         #Z is the stacked identity structure to account for two inputs; we allow upward or downward shift through a so can have identity here
           source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getZ.R")
-          Z1 = getZ(numCos, "identity") #options are identity or diagonal
+          #Z1 = matrix(getZ(numCos, "diagonal"), numCos, 2*numCos) #options are identity or diagonal
+          Z1 = "diagonal and equal"
         #a is unconstrained since we do not have de-meaned data; this also adjusts for order of magnitude differences in the npatt data and allows for intrinsic up or down bias
-          A1 = "unconstrained"
+          A1 = "zero"
         #R allows each company to have its own error in signals--each company has different bias in reporting
-          R1 = "diagonal and unequal"
+          R1 = "diagonal and equal"
       #initial values
         #initial values will be default, meaning that we assume that initial states are an estimated parameter with zero variance
     #model list
       model.list = list(B=B1, U =U1, Q=Q1, Z=Z1, A=A1, R=R1)
       #control.list = list(allow.degen = TRUE, trace =1)
-      control.list = list(safe = TRUE, trace =1, allow.dege= TRUE)
+      control.list = list(safe = TRUE, trace =1, allow.degen= TRUE)
     #run model  
-      twoObs.model = MARSS(model.data2, model = model.list, miss.value =NA, contol = control.list) #runs but does not converge
+      twoObs.model = MARSS(model.data, model = model.list, miss.value =NA, contol = control.list) #runs but does not converge
 
 #stationarity testing===================================================================================
   #identify and plot companies with at least 8 non-missing data points

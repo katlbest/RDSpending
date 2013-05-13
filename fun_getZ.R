@@ -5,8 +5,11 @@ getZ<- function(n, type){
  if (type == "identity"){
    return(outMatrix)
  } else if (type == "diagonal"){
-   outMatrix[outMatrix ==1]= "z"
-   outMatrix[outMatrix == "0"]== as.numeric(outMatrix[outMatrix == "0"])
+   firstList = as.list(firstMatrix)
+   secondList = as.list(secondMatrix)
+   secondList[secondList==1]= "coeff"
+   outList = c(firstList, secondList)
+   outMatrix = matrix(outList, n, 2*n)
    return(outMatrix)
  }else{
    print("Error: Unsupported type")

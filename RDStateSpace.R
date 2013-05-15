@@ -246,14 +246,20 @@
         twoObsDiagZNewRnewQ.model = MARSS(model.data2, model = model.list, miss.value =NA, contol = control.list) #lowest AIC
       
 #MARSS with B that allows for interactions==================================================================
+  indIndex = 1
+  numCos =numCosList[[indIndex]]
+  oneVarInput = oneVarList[[indIndex]]
+  twoVarInput = twoVarList[[indIndex]]
+
   #define inputs
     #state equation
       #B allows all companies' true signals to affect all others'
         B1 = "equalvarcov"
-      #U is zeroor unrestricted
-        U1 = "zero"
+      #U is zero or unrestricted
+        #U1 = "zero"
+        U1 = "unconstrained"
       #Q is diagonal
-        Q1 = "equalvarcov"
+        #Q1 = "equalvarcov"
         Q1 = "diagonal and unequal"
   #observation equation
     #Z allows only each company's signals to affect state, with different coefficients for the two type
@@ -263,14 +269,30 @@
       A1 = "zero"
     #R allows each company to have its own error in signals--each company has different bias in reporting
       R1 = "diagonal and equal"
+      #source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getR.R")
+      #R1 = getR(numCos)
     #initial values
       #initial values will be default, meaning that we assume that initial states are an estimated parameter with zero variance
     #model list
       model.list = list(B=B1, U =U1, Q=Q1, Z=Z1, A=A1, R=R1)
   #control.list = list(allow.degen = TRUE, trace =1)
     control.list = list(safe = TRUE, trace =1, allow.degen= TRUE, maxit = 1000)
-  #run model  
-  newB.model = MARSS(model.data2, model = model.list, miss.value =NA, contol = control.list) #runs but does not converge
+  #run model
+    newB.model = MARSS(twoVarInput, model = model.list, miss.value =NA, contol = control.list) #runs but does not converge
+  #plot
+    plotData =data.frame(t(newB.model$states))
+    seData = t(newB.model$states.se[,1])
+    origData = data.frame(t(twoVarInput))
+    nameVect = c(1:ncol(origData))
+    nameVect = paste("orig", nameVect, sep = "")
+    colnames(origData) = nameVect
+    plotData$time = c(1:nrow(plotData))
+    plotData = cbind(plotData, origData)
+    plotData$lb = plotData$state1 - seData[1] 
+    plotData$ub = plotData$state1 + seData[1] 
+    ggplot(data=plotData, aes(x=time, y=state1)) + geom_line() + geom_point(aes(x = time, y = orig1)) + geom_line(aes(x = time, y = lb), plotData, lty = 'dashed')+ geom_line(aes(x = time, y = ub), plotData, lty = 'dashed')+theme_bw()
+
+  
 
 
 #stationarity testing===================================================================================

@@ -197,7 +197,7 @@ write.csv(output.data, file = "C:/Users/Katharina/Documents/Umich/RDSpend/test.c
 #single-factor dfa models for industry index: r&d signal, all industries==========================================================
 output.data = data.frame(matrix(ncol = 6, nrow = 0))
 colnames(output.data)= c("industryName", "A", "U", "logLik", "numParams", "AICc")
-for (k in 1:lenght(oneVarList)){
+for (k in 1:length(oneVarList)){
   oneVarInput = oneVarList[[k]]
   twoVarInput = twoVarList[[k]]
   numCos = numCosList[[k]]

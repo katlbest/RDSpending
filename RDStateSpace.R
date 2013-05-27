@@ -145,44 +145,98 @@
     numCos = numCosList[[industryIndex]]
     industryData = dataList[[industryIndex]]
 
-  #set model inputs that are certain
-    B1 = "identity"
-    Q1= "diagonal and unequal" #note this could be changed if it causes problems since the unequal portion is irrelevant (it is a 1 by 1 matrix)
-    source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getZCol.R")
-    Z1 = getZCol(numCos, "equal")
-  #set model inputs, alternative 1
-    U1 = "zero" #TBD
-    A1 = "zero" #TBD
-    R1 = "diagonal and equal"
-    model.list.0.0.de = list(B=B1, U =U1, Q=Q1, Z=Z1, A=A1, R=R1) #notation is model.list.u.a.r
-  #set model inputs, alternative 2
-    U1 = "unconstrained"
-    A1 = "zero" #TBD
-    R1 = "diagonal and equal"
-    model.list.u.0.de = list(B=B1, U =U1, Q=Q1, Z=Z1, A=A1, R=R1) #notation is model.list.u.a.r
-  #set model inputs, alternative 3
-    U1 = "unconstrained"
-    source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getACol.R")
-    A1 = getACol(numCos)
-    R1 = "diagonal and equal"
-    model.list.u.a.de = list(B=B1, U =U1, Q=Q1, Z=Z1, A=A1, R=R1) #notation is model.list.u.a.r
-#set model inputs, alternative 4
-  U1 = "unconstrained"
-  source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getACol.R")
-  A1 = getACol(numCos)
-  R1 = "equalvarcov"
-  model.list.u.a.evc = list(B=B1, U =U1, Q=Q1, Z=Z1, A=A1, R=R1) #notation is model.list.u.a.r
-  
+  #set model inputs
+    #set model inputs that are certain
+      BAll = "identity"
+      QAll= "diagonal and unequal" #note this could be changed if it causes problems since the unequal portion is irrelevant (it is a 1 by 1 matrix)
+      source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getZCol.R")
+      ZAll = getZCol(numCos, "equal")
+    #set model inputs, alternative 1
+      U1 = "zero" #TBD
+      A1 = "zero" #TBD
+      R1 = "diagonal and equal"
+      list.0.0.de = list(B=B1, U =U1, Q=Q1, Z=Z1, A=A1, R=R1) #notation is model.list.u.a.r
+    #set model inputs, alternative 2
+      U2 = "unconstrained"
+      A2 = "zero" #TBD
+      R2 = "diagonal and equal"
+      list.u.0.de = list(B=B1, U =U2, Q=Q1, Z=Z1, A=A2, R=R2) #notation is model.list.u.a.r
+    #set model inputs, alternative 3
+      U3 = "unconstrained"
+      source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getACol.R")
+      A3 = getACol(numCos)
+      R3 = "diagonal and equal"
+      list.u.a.de = list(B=B1, U =U3, Q=Q1, Z=Z1, A=A3, R=R3) #notation is model.list.u.a.r
+      
   #set model controls, if necessary
     #control.list = list(safe = TRUE, trace =1, allow.degen= TRUE, maxit = 1000)
+
+  #set up possible levels
+    source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getACol.R")
+    source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getR.R")
+    twoValR = getR(numCos)
+    levels.R = list() #note: diagonal and unequal doesn't run
+    levels.R[[1]]= "diagonal and equal"
+    levels.R[[2]]= "unconstrained"
+    levels.R[[3]]= "equalvarcov"
+    levels.R[[4]]= twoValR
+    twoValA = getACol(numCos)
+    levels.A = list()
+    levels.A[[1]]= "zero"
+    levels.A[[2]] = twoValA
+    levels.U = c("zero", "equal")
   
   #run models
-    model.0.0.de = MARSS(twoVarInput, model = model.list.0.0.de, miss.value =NA)
-    model.u.0.de = MARSS(twoVarInput, model = model.list.u.0.de, miss.value =NA)
-    model.u.a.de = MARSS(twoVarInput, model = model.list.u.a.de, miss.value =NA)
-    model.u.a.evc = MARSS(twoVarInput, model = model.list.u.a.evc, miss.value =NA)
+    output.data = data.frame(matrix(ncol = 6, nrow = 0))
+    colnames(output.data)= c("R", "A", "U", "logLik", "numParams", "AICc")
+    for (i in 1:length(levels.R)){
+      for (j in 1:length(levels.A)){
+        for (U in levels.U){
+          model.list = list(B=BAll, U=U, Q=QAll, Z=ZAll, A=levels.A[[j]], R=levels.R[[i]])
+          model.current = MARSS(twoVarInput, model = model.list, miss.value =NA)
+          if (is.null(model.current$num.params)){
+            numParams = NA
+            AICc = NA
+          }
+          else{
+            numParams = model.current$num.params
+            AICc = model.current$AICc
+          }
+          output.data= rbind(output.data, data.frame(R = levels.R[[i]][1], A = levels.A[[j]][1], U = U, logLik = model.current$logLik, numParams = numParams, AICc = AICc, stringsAsFactors = FALSE))
+          assign(paste("model.", levels.R[[i]][1], levels.A[[j]][1], U, sep = "."), model.current)   
+        }
+      }
+    }
+    model.0.0.de = MARSS(twoVarInput, model = list.0.0.de, miss.value =NA)
+    model.u.0.de = MARSS(twoVarInput, model = list.u.0.de, miss.value =NA)
+    model.u.a.de = MARSS(twoVarInput, model = list.u.a.de, miss.value =NA)
   
-  #plot
+source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getR.R")
+R1 = getR(numCos)
+
+  #get outputs 
+    model.list = list(model.0.0.de, model.u.0.de, model.u.a.de, model.u.a.evc)
+    stateList = list()
+    SEList = list()
+    AICList = data.frame(matrix(nrow = length(model.list), ncol = 1))
+    CIList = list()
+    colnames(AICList) = c("AIC")
+    for (i in 1:length(model.list)){
+      AICList[i,1] = model.list[[i]]$AIC
+      #curAICc = model.list[[i]]$AICc
+      stateList[[i]] = model.list[[i]]$states
+      SEList[[i]] = model.list[[i]]$states.se #standard errors on the states
+      CIList[[i]] = MARSSparamCIs(model.list[[i]]) #, method = "parametric") fails to run
+      #curResiduals = residuals(model.list[[i]])
+    }
+
+
+
+  
+
+
+
+#plot
   spp = rownames(twoVarInput)
   par(mfcol=c(3,3), mar=c(3,4,1.5,0.5), oma=c(0.4,1,1,1))
   #for(i in spp){

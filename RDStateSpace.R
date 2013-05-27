@@ -235,7 +235,13 @@ for (k in 1:length(oneVarList)){
           numParams = model.current$num.params
           AICc = model.current$AICc
         }
-        cur.outdata =data.frame(industry= industryName, A = levels.A[[j]][1], U = U, logLik = model.current$logLik, numParams = numParams, AICc = AICc, stringsAsFactors = FALSE)
+        if (is.null(model.current$logLik)){
+          logLik = NA
+        }
+        else{
+          logLik = model.current$logLik
+        }
+        cur.outdata =data.frame(industry= industryName, A = levels.A[[j]][1], U = U, logLik = logLik, numParams = numParams, AICc = AICc, stringsAsFactors = FALSE)
         colnames(cur.outdata)= colnames(output.data)
         output.data= rbind(output.data, cur.outdata)
         assign(paste("model.", levels.R[[i]][1], levels.A[[j]][1], U, sep = "."), model.current)   

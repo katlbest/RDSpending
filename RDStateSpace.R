@@ -20,27 +20,27 @@
   RDDATA$datadate = as.Date(RDDATA$datadate, "%d%b%Y")
   RDDATA$datayear = as.numeric(format(RDDATA$datadate, format = "%Y"))
 
-#pull industry averages and add to RDDATA, get industry average adjusted xrd metric
-  #indCodes = levels(as.factor(RDDATA$sic))
-  #FREQTABLE = freq(ordered(RDDATA$sic), plot=FALSE) #many industries have over 100 entries
-  INDAVGTABLE = RDDATA[,c("iyID", "xrdAdj")]
-  INDAVGTABLE = na.exclude(INDAVGTABLE)
-  INDAVGTABLE = INDAVGTABLE[INDAVGTABLE$xrdAdj >0,]
-  INDAVGTABLE = melt(INDAVGTABLE, id = "iyID")
-  AvgRD = dcast(INDAVGTABLE, iyID~variable, mean)
-  #AvgRD = AvgRD[,c("iyID", "X")]
-  colnames(AvgRD)= c("iyID", "IndAvg")
-  RDDATA2<- merge(x = RDDATA, y = AvgRD, by = "iyID", all.x = TRUE) #some will have NA for iyID?
-  RDDATA2$xrdAdjbyInd = RDDATA2$xrdAdj-RDDATA2$IndAvg
-  RDDATA2$npatappAdj = RDDATA2$npatapp/RDDATA2$sale
-  #AVGTABLE = ddply(RDDATA2,~gvkey,summarise,meanNpa=mean(npatappAdj),sdNpa=sd(npatappAdj), meanXrdAdj = mean(xrdAdj), sdXrdAdj = sd(xrdAdj))
-  #RDDATA2 = merge(x = RDDATA2, y = AVGTABLE, by = "gvkey", all.x = TRUE)
-  #RDDATA2$npatappZ = (RDDATA2$npatappAdj-meanNpa)/sdNpa
-  #RDDATA2$xrdZ= RDDATA2$xrdAdj- meanXrdAdj/sdXrdAdj
+  #pull industry averages and add to RDDATA, get industry average adjusted xrd metric
+    #indCodes = levels(as.factor(RDDATA$sic))
+    #FREQTABLE = freq(ordered(RDDATA$sic), plot=FALSE) #many industries have over 100 entries
+    INDAVGTABLE = RDDATA[,c("iyID", "xrdAdj")]
+    INDAVGTABLE = na.exclude(INDAVGTABLE)
+    INDAVGTABLE = INDAVGTABLE[INDAVGTABLE$xrdAdj >0,]
+    INDAVGTABLE = melt(INDAVGTABLE, id = "iyID")
+    AvgRD = dcast(INDAVGTABLE, iyID~variable, mean)
+    #AvgRD = AvgRD[,c("iyID", "X")]
+    colnames(AvgRD)= c("iyID", "IndAvg")
+    RDDATA2<- merge(x = RDDATA, y = AvgRD, by = "iyID", all.x = TRUE) #some will have NA for iyID?
+    RDDATA2$xrdAdjbyInd = RDDATA2$xrdAdj-RDDATA2$IndAvg
+    RDDATA2$npatappAdj = RDDATA2$npatapp/RDDATA2$sale
+    #AVGTABLE = ddply(RDDATA2,~gvkey,summarise,meanNpa=mean(npatappAdj),sdNpa=sd(npatappAdj), meanXrdAdj = mean(xrdAdj), sdXrdAdj = sd(xrdAdj))
+    #RDDATA2 = merge(x = RDDATA2, y = AVGTABLE, by = "gvkey", all.x = TRUE)
+    #RDDATA2$npatappZ = (RDDATA2$npatappAdj-meanNpa)/sdNpa
+    #RDDATA2$xrdZ= RDDATA2$xrdAdj- meanXrdAdj/sdXrdAdj
 
 #clean data=======================================================================
   #get clean dataset--only data with at least 8 entries
-    RDONLY = data.frame(gvkey = RDDATA2$gvkey, xrdAdj = RDDATA2$xrdAdj, datadate = RDDATA2$datadate, xrdAdjNormalized = RDDATA2$xrdAdjNormalized, xrd = RDDATA2$xrd, IndAvg = RDDATA2$IndAvg, xrdAdjbyInd = RDDATA2$xrdAdjbyInd, sic = RDDATA2$sic, npatgrant = RDDATA2$npatgrant, npatapp = RDDATA2$npatapp, datayear = RDDATA2$datayear, npatappAdj = RDDATA2$npatappAdj)
+    RDONLY = data.frame(gvkey = RDDATA2$gvkey, xrdAdj = RDDATA2$xrdAdj, datadate = RDDATA2$datadate, xrdAdjNormalized = RDDATA2$xrdAdjNormalized, xrd = RDDATA2$xrd, IndAvg = RDDATA2$IndAvg, xrdAdjbyInd = RDDATA2$xrdAdjbyInd, sic = RDDATA2$sic, npatgrant = RDDATA2$npatgrant, npatapp = RDDATA2$npatapp, datayear = RDDATA2$datayear, npatappAdj = RDDATA2$npatappAdj, sale = RDDATA2$sale)
     RDONLY = RDONLY[order(RDONLY$gvkey),]
     NOMISS = na.exclude(RDONLY)
     FREQTABLE = freq(ordered(NOMISS$gvkey), plot=FALSE)
@@ -64,28 +64,29 @@
         write.csv(curData, outFile)
       }
     }
-    #create 3-company test file
-      #industry is 100
-      industryIndex = which(nameVector == 100)
-      industryData = dataList[[industryIndex]]
-      #industryData = industryData[industryData$freq==12,]
-      
-      #put this in MARSS form
-        inputData = ddply(industryData, ~datayear, 
-          function(df) {
-            res = data.frame(rbind(df$xrdAdj)) #take R&D spending as a percentage of sales
-            names(res) = sprintf("%s",df$gvkey)
-            res
-          }
-        )
-        inputData2 = ddply(industryData, ~datayear, 
-                  function(df) {
-                    res = data.frame(rbind(df$npatappAdj))
-                    names(res) = sprintf("%s",df$gvkey)
-                    res
-                  }
-        )
-  
+
+  #create test file for one industry
+    #industry is 100, but can be changed
+    industryIndex = which(nameVector == 100)
+    industryData = dataList[[industryIndex]]
+    #industryData = industryData[industryData$freq==12,]
+    
+    #put this in MARSS form
+      inputData = ddply(industryData, ~datayear, 
+        function(df) {
+          res = data.frame(rbind(df$xrdAdj)) #take R&D spending as a percentage of sales
+          names(res) = sprintf("%s",df$gvkey)
+          res
+        }
+      )
+      inputData2 = ddply(industryData, ~datayear, 
+                function(df) {
+                  res = data.frame(rbind(df$npatappAdj))
+                  names(res) = sprintf("%s",df$gvkey)
+                  res
+                }
+      )
+
     #fix input data
         numCos = ncol(inputData)-1
         model.data = inputData[-c(1)] #delete time entry
@@ -99,201 +100,129 @@
     #save workspace
       save.image(file = "cleandata.RData")
 
-    #create input file for each industry
-      oneVarList = list()
-      twoVarList = list()
-      numCosList = list()
-      for (i in 1:length(nameVector)){
-        curData = dataList[[i]]
-        curDataOneVar = ddply(curData, ~datayear, 
-                          function(df) {
-                            res = data.frame(rbind(df$xrdAdj)) #take R&D spending as a percentage of sales
-                            names(res) = sprintf("%s",df$gvkey)
-                            res
-                            }
-                          )
-        curDataTwoVar = ddply(curData, ~datayear, 
-                           function(df) {
-                             res = data.frame(rbind(df$npatappAdj))
-                             names(res) = sprintf("%s",df$gvkey)
-                             res
-                           }
+  #create input file for each industry prgramatically
+    oneVarList = list()
+    twoVarList = list()
+    numCosList = list()
+    for (i in 1:length(nameVector)){
+      curData = dataList[[i]]
+      curDataOneVar = ddply(curData, ~datayear, 
+                        function(df) {
+                          res = data.frame(rbind(df$xrdAdj)) #take R&D spending as a percentage of sales
+                          names(res) = sprintf("%s",df$gvkey)
+                          res
+                          }
                         )
-        numCos = ncol(curDataOneVar)-1
-        model.data = curDataOneVar[-c(1)] #delete time entry
-        model.data2 =curDataTwoVar[-c(1)]
-        model.data = as.matrix(model.data)
-        model.data2 = as.matrix(model.data2)
-        model.data = t(model.data)
-        model.data2 = t(model.data2)
-        model.data2 = rbind(model.data, model.data2)
-        oneVarList[[i]]= model.data
-        twoVarList[[i]]= model.data2
-        numCosList[[i]] = numCos
-      }
+      curDataTwoVar = ddply(curData, ~datayear, 
+                         function(df) {
+                           res = data.frame(rbind(df$npatappAdj))
+                           names(res) = sprintf("%s",df$gvkey)
+                           res
+                         }
+                      )
+      numCos = ncol(curDataOneVar)-1
+      model.data = curDataOneVar[-c(1)] #delete time entry
+      model.data2 =curDataTwoVar[-c(1)]
+      model.data = as.matrix(model.data)
+      model.data2 = as.matrix(model.data2)
+      model.data = t(model.data)
+      model.data2 = t(model.data2)
+      model.data2 = rbind(model.data, model.data2)
+      oneVarList[[i]]= model.data
+      twoVarList[[i]]= model.data2
+      numCosList[[i]] = numCos
+    }
+  #model.data is the single variable file
+  #model.data2 is the multivariable file
+  #covariates cannot have missing datas
     
-#state space========================================================================================
-  #run MARSS with reasonable specification and single input
-    #define inputs
-      #state equation
-        #B is identity, since we assume autoregressive nature
-          B1 = "identity"
-        #U is zero, since we assume no trend
-          U1 = "zero"
-        #Q is constrained to allow a constant variance for each company in the same industry, and a set covariance between companies
-          Q1 = "equalvarcov"
-      #observation equation
-        #Z adjusts for the bias in the signal, which is the same across industry
-          Z1 = "diagonal and equal"
-        #a is zero--signals are centered around the true value
-          A1 = "zero"
-        #R allows each company to have its own error in signals--each company has different bias in reporting
-          R1 = "diagonal and equal"
-      #initial values
-        #initial values will be default, meaning that we assume that initial states are an estimated parameter with zero variance
-    #model list
-      model.list = list(B=B1, U =U1, Q=Q1, Z=Z1, A=A1, R=R1)
-      #control.list = list(allow.degen = TRUE, trace =1)
-      control.list = list(safe = TRUE, trace =1, allow.degen= TRUE)
-    #run model  
-      singleObs.model = MARSS(model.data, model = model.list, miss.value =NA, contol = control.list) #runs but does not converge
-      singleObs.model=MARSSparamCIs(singleObs.model)
-      plotData =data.frame(t(singleObs.model$states))
-      seData = t(singleObs.model$states.se[,1])
-      origData = data.frame(t(model.data))
-      nameVect = c(1:ncol(origData))
-      nameVect = paste("orig", nameVect, sep = "")
-      colnames(origData) = nameVect
-      plotData$time = c(1:nrow(plotData))
-      plotData = cbind(plotData, origData)
-      plotData$lb = plotData$state1 - seData[1] 
-      plotData$ub = plotData$state1 + seData[1] 
-      ggplot(data=plotData, aes(x=time, y=state1)) + geom_line() + geom_point(aes(x = time, y = orig1)) + geom_line(aes(x = time, y = lb), plotData, lty = 'dashed')+ geom_line(aes(x = time, y = ub), plotData, lty = 'dashed')+theme_bw()
+#single-factor dfa models for industry index: r&d signal==========================================================
 
-    #run MARSS with reasonable specification and both inputs--nochange in R, identity Z1
-      #define inputs that change
-        #Z is the stacked identity structure to account for two inputs; we allow upward or downward shift through a so can have identity here
-          source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getZ.R")
-          Z1 = getZ(numCos, "identity")
-      #set up model
-        model.list = list(B=B1, U =U1, Q=Q1, Z=Z1, A=A1, R=R1)
-        control.list = list(safe = TRUE, trace =1, allow.degen= TRUE)
-      #run model  
-        twoObsIDZ.model = MARSS(model.data2, model = model.list, miss.value =NA, contol = control.list) #runs but does not converge
+  #select industry
+    industryIndex = 1
+    oneVarInput = oneVarList[[industryIndex]]
+    twoVarInput = twoVarList[[industryIndex]]
+    numCos = numCosList[[industryIndex]]
+    industryData = dataList[[industryIndex]]
 
-    #run MARSS with reasonable specification and both inputs--nochange in R, diagonatl Z1
-      #define inputs that change
-        #Z is the stacked identity structure to account for two inputs; we allow upward or downward shift through a so can have identity here
-          source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getZ.R")
-          Z1 = getZ(numCos, "diagonal")
-      #set up model
-      model.list = list(B=B1, U =U1, Q=Q1, Z=Z1, A=A1, R=R1)
-      control.list = list(safe = TRUE, trace =1, allow.degen= TRUE)
-      #run model  
-      twoObsDiagZ.model = MARSS(model.data2, model = model.list, miss.value =NA, contol = control.list) #runs but does not converge
-
-    #run MARSS with reasonable specification and both inputs--modified R with two variances, identity Z1
-      #define inputs that change
-        #Z is the stacked identity structure to account for two inputs; we allow upward or downward shift through a so can have identity here
-        source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getZ.R")
-        Z1 = getZ(numCos, "identity")
-        #change R so that you can have different errors for different types of signals
-        source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getR.R")
-        R1 = getR(numCos)
-      #set up model
-        model.list = list(B=B1, U =U1, Q=Q1, Z=Z1, A=A1, R=R1)
-       control.list = list(safe = TRUE, trace =1, allow.degen= TRUE)
-      #run model  
-        twoObsIDZNewR.model = MARSS(model.data2, model = model.list, miss.value =NA, contol = control.list) #runs but does not converge
-    
-    #run MARSS with reasonable specification and both inputs--modified R with two variances, diagonalZ Z1
-      #define inputs that change
-        #Z is the stacked identity structure to account for two inputs; we allow upward or downward shift through a so can have identity here
-          source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getZ.R")
-          Z1 = getZ(numCos, "diagonal")
-          source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getR.R")
-          R1 = getR(numCos)
-      #set up model
-        model.list = list(B=B1, U =U1, Q=Q1, Z=Z1, A=A1, R=R1)
-        control.list = list(safe = TRUE, trace =1, allow.degen= TRUE)
-      #run model  
-        twoObsDiagZNewR.model = MARSS(model.data2, model = model.list, miss.value =NA, contol = control.list) #lowest AIC
-        plotData =data.frame(t(twoObsDiagZNewR.model$states))
-        seData = t(twoObsDiagZNewR.model$states.se[,1])
-        origData = data.frame(t(model.data))
-        nameVect = c(1:ncol(origData))
-        nameVect = paste("orig", nameVect, sep = "")
-        colnames(origData) = nameVect
-        plotData$time = c(1:nrow(plotData))
-        plotData = cbind(plotData, origData)
-        plotData$lb = plotData$state1 - seData[1] 
-        plotData$ub = plotData$state1 + seData[1] 
-        ggplot(data=plotData, aes(x=time, y=state1)) + geom_line() + geom_point(aes(x = time, y = orig1)) + geom_line(aes(x = time, y = lb), plotData, lty = 'dashed')+ geom_line(aes(x = time, y = ub), plotData, lty = 'dashed')+theme_bw()
-
-    #run MARSS with reasonable specification and both inputs--specialQ structure
-      #define inputs that change
-        #Z is the stacked identity structure to account for two inputs; we allow upward or downward shift through a so can have identity here
-        source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getZ.R")
-        Z1 = getZ(numCos, "diagonal")
-        source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getR.R")
-        R1 = getR(numCos)
-        source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getQ.R")
-        Q1 = getQ(numCos) #this does not work because we can only have linear models
-        #set up model
-        model.list = list(B=B1, U =U1, Q=Q1, Z=Z1, A=A1, R=R1)
-        control.list = list(safe = TRUE, trace =1, allow.degen= TRUE)
-      #run model  
-        twoObsDiagZNewRnewQ.model = MARSS(model.data2, model = model.list, miss.value =NA, contol = control.list) #lowest AIC
-      
-#MARSS with B that allows for interactions==================================================================
-  indIndex = 1
-  numCos =numCosList[[indIndex]]
-  oneVarInput = oneVarList[[indIndex]]
-  twoVarInput = twoVarList[[indIndex]]
-
-  #define inputs
-    #state equation
-      #B allows all companies' true signals to affect all others'
-        B1 = "equalvarcov"
-      #U is zero or unrestricted
-        #U1 = "zero"
-        U1 = "unconstrained"
-      #Q is diagonal
-        #Q1 = "equalvarcov"
-        Q1 = "diagonal and unequal"
-  #observation equation
-    #Z allows only each company's signals to affect state, with different coefficients for the two type
-      source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getZ.R")
-      Z1 = getZ(numCos, "diagonal")
-    #a is zero--signals are centered around the true value
-      A1 = "zero"
-    #R allows each company to have its own error in signals--each company has different bias in reporting
-      R1 = "diagonal and equal"
-      #source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getR.R")
-      #R1 = getR(numCos)
-    #initial values
-      #initial values will be default, meaning that we assume that initial states are an estimated parameter with zero variance
-    #model list
-      model.list = list(B=B1, U =U1, Q=Q1, Z=Z1, A=A1, R=R1)
-  #control.list = list(allow.degen = TRUE, trace =1)
-    control.list = list(safe = TRUE, trace =1, allow.degen= TRUE, maxit = 1000)
-  #run model
-    newB.model = MARSS(twoVarInput, model = model.list, miss.value =NA, contol = control.list) #runs but does not converge
-  #plot
-    plotData =data.frame(t(newB.model$states))
-    seData = t(newB.model$states.se[,1])
-    origData = data.frame(t(twoVarInput))
-    nameVect = c(1:ncol(origData))
-    nameVect = paste("orig", nameVect, sep = "")
-    colnames(origData) = nameVect
-    plotData$time = c(1:nrow(plotData))
-    plotData = cbind(plotData, origData)
-    plotData$lb = plotData$state1 - seData[1] 
-    plotData$ub = plotData$state1 + seData[1] 
-    ggplot(data=plotData, aes(x=time, y=state1)) + geom_line() + geom_point(aes(x = time, y = orig1)) + geom_line(aes(x = time, y = lb), plotData, lty = 'dashed')+ geom_line(aes(x = time, y = ub), plotData, lty = 'dashed')+theme_bw()
-
+  #set model inputs that are certain
+    B1 = "identity"
+    Q1= "diagonal and unequal" #note this could be changed if it causes problems since the unequal portion is irrelevant (it is a 1 by 1 matrix)
+    source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getZCol.R")
+    Z1 = getZCol(numCos, "equal")
+  #set model inputs, alternative 1
+    U1 = "zero" #TBD
+    A1 = "zero" #TBD
+    R1 = "diagonal and equal"
+    model.list.0.0.de = list(B=B1, U =U1, Q=Q1, Z=Z1, A=A1, R=R1) #notation is model.list.u.a.r
+  #set model inputs, alternative 2
+    U1 = "unconstrained"
+    A1 = "zero" #TBD
+    R1 = "diagonal and equal"
+    model.list.u.0.de = list(B=B1, U =U1, Q=Q1, Z=Z1, A=A1, R=R1) #notation is model.list.u.a.r
+  #set model inputs, alternative 3
+    U1 = "unconstrained"
+    source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getACol.R")
+    A1 = getACol(numCos)
+    R1 = "diagonal and equal"
+    model.list.u.a.de = list(B=B1, U =U1, Q=Q1, Z=Z1, A=A1, R=R1) #notation is model.list.u.a.r
+#set model inputs, alternative 4
+  U1 = "unconstrained"
+  source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getACol.R")
+  A1 = getACol(numCos)
+  R1 = "equalvarcov"
+  model.list.u.a.evc = list(B=B1, U =U1, Q=Q1, Z=Z1, A=A1, R=R1) #notation is model.list.u.a.r
   
+  #set model controls, if necessary
+    #control.list = list(safe = TRUE, trace =1, allow.degen= TRUE, maxit = 1000)
+  
+  #run models
+    model.0.0.de = MARSS(twoVarInput, model = model.list.0.0.de, miss.value =NA)
+    model.u.0.de = MARSS(twoVarInput, model = model.list.u.0.de, miss.value =NA)
+    model.u.a.de = MARSS(twoVarInput, model = model.list.u.a.de, miss.value =NA)
+    model.u.a.evc = MARSS(twoVarInput, model = model.list.u.a.evc, miss.value =NA)
+  
+  #plot
+  spp = rownames(twoVarInput)
+  par(mfcol=c(3,3), mar=c(3,4,1.5,0.5), oma=c(0.4,1,1,1))
+  #for(i in spp){
+  for (i in 10:nrow(twoVarInput)){
+    plot(twoVarInput[i,],xlab="",ylab="Scaled signal")
+    #, bty="L", xaxt="n", pch=16, col="blue", type="b")
+    #axis(1,12*(0:dim(twoVarInput)[2])+1,1980+0:dim(twoVarInput)[2])
+    title(rownames(twoVarInput)[i])
+  }
 
+  plotData =data.frame(t(newB.model$states))
+  seData = t(newB.model$states.se[,1])
+  origData = data.frame(t(twoVarInput))
+  nameVect = c(1:ncol(origData))
+  nameVect = paste("orig", nameVect, sep = "")
+  colnames(origData) = nameVect
+  plotData$time = c(1:nrow(plotData))
+  plotData = cbind(plotData, origData)
+  plotData$lb = plotData$state1 - seData[1] 
+  plotData$ub = plotData$state1 + seData[1] 
+  ggplot(data=plotData, aes(x=time, y=state1)) + geom_line() + geom_point(aes(x = time, y = orig1)) + geom_line(aes(x = time, y = lb), plotData, lty = 'dashed')+ geom_line(aes(x = time, y = ub), plotData, lty = 'dashed')+theme_bw() + geom_point(aes(x = time, y = orig2))+ geom_point(aes(x = time, y = orig3))+ geom_point(aes(x = time, y = orig4))+ geom_point(aes(x = time, y = orig5))+ geom_point(aes(x = time, y = orig6))+ geom_point(aes(x = time, y = orig7))+ geom_point(aes(x = time, y = orig8))+ geom_point(aes(x = time, y = orig9))
+
+
+
+
+#plot R&D versus sales to check normalization====================================================================
+  plotList= list()
+  for (i in 1:length(dataList)){
+    curData = dataList[[i]]
+    curData$gvkey = as.factor(curData$gvkey)
+    myPlot = ggplot(curData, aes(sale, xrd, group = gvkey, colour= gvkey)) + geom_point(shape = 2) + theme_bw() + labs(title=indList[i]) #+ coord_equal(ratio = 8) + scale_color_brewer(palette = "Set1") 
+    plotList[[length(plotList)+1]]= myPlot
+  }
+  argsList <- c(plotList,3,2)
+  namesList = c(1:length(plotList))
+  namesList = as.character(namesList)
+  names(argsList) <- c(namesList, "nrow", "ncol")
+  pdf("C:/Users/Katharina/Documents/Umich/rdspend/linearityCheckPlot.pdf")
+  do.call(marrangeGrob, argsList)
+  dev.off()
 
 #stationarity testing===================================================================================
   #identify and plot companies with at least 8 non-missing data points
@@ -396,10 +325,230 @@
       outVector$KPSSpValue[i]= KPSSTest$p.value #alt hypothesis is nonstationary, high p-value means fail to reject null -> stationarity
     }
     argsList <- c(plotList,3,2)
-    namesList <- c(letters, paste("a", letters, sep = ""))
-    names(argsList) <- c(namesList[1:48], "nrow", "ncol")
-    pdf("C:/Users/Katharina/Documents/Umich/rdspend/plotByCoInd2.pdf")
+    namesList = c(1:length(plotList))
+    namesList = as.character(namesList)
+    #namesList <- c(letters, paste("a", letters, sep = ""))
+    names(argsList) <- c(namesList, "nrow", "ncol")
+    pdf("C:/Users/Katharina/Documents/Umich/rdspend/plotBy.pdf")
     do.call(marrangeGrob, argsList)
     dev.off()
     #ggsave("C:/Users/Katharina/Documents/Umich/rdspend/plotByCo.pdf", do.call(marrangeGrob, argsList)) #this makes ugly plots
     write.csv(outVector, "C:/Users/Katharina/Documents/Umich/rdspend/manyentriesPvalsbyInd.csv")
+
+#unstable state space trying to get all companies========================================================================================
+#run MARSS with reasonable specification and single input
+#define inputs
+#state equation
+#B is identity, since we assume autoregressive nature
+B1 = "identity"
+#U is zero, since we assume no trend
+U1 = "zero"
+#Q is constrained to allow a constant variance for each company in the same industry, and a set covariance between companies
+Q1 = "equalvarcov"
+#observation equation
+#Z adjusts for the bias in the signal, which is the same across industry
+Z1 = "diagonal and equal"
+#a is zero--signals are centered around the true value
+A1 = "zero"
+#R allows each company to have its own error in signals--each company has different bias in reporting
+R1 = "diagonal and equal"
+#initial values
+#initial values will be default, meaning that we assume that initial states are an estimated parameter with zero variance
+#model list
+model.list = list(B=B1, U =U1, Q=Q1, Z=Z1, A=A1, R=R1)
+#control.list = list(allow.degen = TRUE, trace =1)
+control.list = list(safe = TRUE, trace =1, allow.degen= TRUE)
+#run model  
+singleObs.model = MARSS(model.data, model = model.list, miss.value =NA, contol = control.list) #runs but does not converge
+singleObs.model=MARSSparamCIs(singleObs.model)
+plotData =data.frame(t(singleObs.model$states))
+seData = t(singleObs.model$states.se[,1])
+origData = data.frame(t(model.data))
+nameVect = c(1:ncol(origData))
+nameVect = paste("orig", nameVect, sep = "")
+colnames(origData) = nameVect
+plotData$time = c(1:nrow(plotData))
+plotData = cbind(plotData, origData)
+plotData$lb = plotData$state1 - seData[1] 
+plotData$ub = plotData$state1 + seData[1] 
+ggplot(data=plotData, aes(x=time, y=state1)) + geom_line() + geom_point(aes(x = time, y = orig1)) + geom_line(aes(x = time, y = lb), plotData, lty = 'dashed')+ geom_line(aes(x = time, y = ub), plotData, lty = 'dashed')+theme_bw()
+
+#run MARSS with reasonable specification and both inputs--nochange in R, identity Z1
+#define inputs that change
+#Z is the stacked identity structure to account for two inputs; we allow upward or downward shift through a so can have identity here
+source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getZ.R")
+Z1 = getZ(numCos, "identity")
+#set up model
+model.list = list(B=B1, U =U1, Q=Q1, Z=Z1, A=A1, R=R1)
+control.list = list(safe = TRUE, trace =1, allow.degen= TRUE)
+#run model  
+twoObsIDZ.model = MARSS(model.data2, model = model.list, miss.value =NA, contol = control.list) #runs but does not converge
+
+#run MARSS with reasonable specification and both inputs--nochange in R, diagonatl Z1
+#define inputs that change
+#Z is the stacked identity structure to account for two inputs; we allow upward or downward shift through a so can have identity here
+source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getZ.R")
+Z1 = getZ(numCos, "diagonal")
+#set up model
+model.list = list(B=B1, U =U1, Q=Q1, Z=Z1, A=A1, R=R1)
+control.list = list(safe = TRUE, trace =1, allow.degen= TRUE)
+#run model  
+twoObsDiagZ.model = MARSS(model.data2, model = model.list, miss.value =NA, contol = control.list) #runs but does not converge
+
+#run MARSS with reasonable specification and both inputs--modified R with two variances, identity Z1
+#define inputs that change
+#Z is the stacked identity structure to account for two inputs; we allow upward or downward shift through a so can have identity here
+source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getZ.R")
+Z1 = getZ(numCos, "identity")
+#change R so that you can have different errors for different types of signals
+source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getR.R")
+R1 = getR(numCos)
+#set up model
+model.list = list(B=B1, U =U1, Q=Q1, Z=Z1, A=A1, R=R1)
+control.list = list(safe = TRUE, trace =1, allow.degen= TRUE)
+#run model  
+twoObsIDZNewR.model = MARSS(model.data2, model = model.list, miss.value =NA, contol = control.list) #runs but does not converge
+
+#run MARSS with reasonable specification and both inputs--modified R with two variances, diagonalZ Z1
+#define inputs that change
+#Z is the stacked identity structure to account for two inputs; we allow upward or downward shift through a so can have identity here
+source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getZ.R")
+Z1 = getZ(numCos, "diagonal")
+source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getR.R")
+R1 = getR(numCos)
+#set up model
+model.list = list(B=B1, U =U1, Q=Q1, Z=Z1, A=A1, R=R1)
+control.list = list(safe = TRUE, trace =1, allow.degen= TRUE)
+#run model  
+twoObsDiagZNewR.model = MARSS(model.data2, model = model.list, miss.value =NA, contol = control.list) #lowest AIC
+plotData =data.frame(t(twoObsDiagZNewR.model$states))
+seData = t(twoObsDiagZNewR.model$states.se[,1])
+origData = data.frame(t(model.data))
+nameVect = c(1:ncol(origData))
+nameVect = paste("orig", nameVect, sep = "")
+colnames(origData) = nameVect
+plotData$time = c(1:nrow(plotData))
+plotData = cbind(plotData, origData)
+plotData$lb = plotData$state1 - seData[1] 
+plotData$ub = plotData$state1 + seData[1] 
+ggplot(data=plotData, aes(x=time, y=state1)) + geom_line() + geom_point(aes(x = time, y = orig1)) + geom_line(aes(x = time, y = lb), plotData, lty = 'dashed')+ geom_line(aes(x = time, y = ub), plotData, lty = 'dashed')+theme_bw()
+
+#run MARSS with reasonable specification and both inputs--specialQ structure
+#define inputs that change
+#Z is the stacked identity structure to account for two inputs; we allow upward or downward shift through a so can have identity here
+source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getZ.R")
+Z1 = getZ(numCos, "diagonal")
+source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getR.R")
+R1 = getR(numCos)
+source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getQ.R")
+Q1 = getQ(numCos) #this does not work because we can only have linear models
+#set up model
+model.list = list(B=B1, U =U1, Q=Q1, Z=Z1, A=A1, R=R1)
+control.list = list(safe = TRUE, trace =1, allow.degen= TRUE)
+#run model  
+twoObsDiagZNewRnewQ.model = MARSS(model.data2, model = model.list, miss.value =NA, contol = control.list) #lowest AIC
+
+#unstable state space with B that allows for interactions-de facto industry index=================================================================
+indIndex = 1
+numCos =numCosList[[indIndex]]
+oneVarInput = oneVarList[[indIndex]]
+oneVarInput = oneVarInput[,8:19]
+twoVarInput = twoVarList[[indIndex]]
+twoVarInput = twoVarInput[,8:19]
+write.csv(twoVarInput, file = "C:/Users/Katharina/Documents/Umich/RDSpend/test.csv")
+fewMissInput = read.csv("C:/Users/Katharina/Documents/Umich/RDSpend/test2.csv")
+fewMissInput = fewMissInput[,2:ncol(fewMissInput)]
+numCos = nrow(fewMissInput)/2
+fewMissInput = as.matrix(fewMissInput)
+#define inputs
+#state equation
+#B allows all companies' true signals to affect all others'
+source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getB.R")
+B1 = getB(numCos, "equal")
+#U must be zero if we are to estimate B
+U1 = "zero"
+#U1 = "unconstrained"
+#Q is diagonal, equal or unequal
+source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getQ2.R")
+Q1 = getQ2(numCos, "unequal")
+#observation equation
+#Z is diagnoal, since each observation comes from on thing; allow Z to be diag and equal at top, then 1
+source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getZ2.R")
+Z1 = getZ2(numCos)
+#a is zero--signals are centered around the true value, TBD
+A1 = "zero"
+#R allows each company to have its own error in signals--each company has different bias in reporting, no error in our covar signal, TBD maybe unequal
+source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getR2.R")
+R1 = getR2(numCos)
+#source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getR.R")
+#R1 = getR(numCos)
+#initial values
+#initial values will be default, meaning that we assume that initial states are an estimated parameter with zero variance
+#model list
+#x0=fewMissInput[,1,drop=FALSE]
+model.list = list(B=B1, U =U1, Q=Q1, Z=Z1, A=A1, R=R1)
+model.list$tinitx=1
+#model.list$x0=x0
+#control.list = list(allow.degen = TRUE, trace =1)
+control.list = list(safe = TRUE, trace =1, allow.degen= TRUE) #, maxit = 1000
+#run model
+newB.model = MARSS(fewMissInput, model = model.list, miss.value =NA, contol = control.list) #runs but does not converge
+#plot
+plotData =data.frame(t(newB.model$states))
+seData = t(newB.model$states.se[,1])
+origData = data.frame(t(twoVarInput))
+nameVect = c(1:ncol(origData))
+nameVect = paste("orig", nameVect, sep = "")
+colnames(origData) = nameVect
+plotData$time = c(1:nrow(plotData))
+plotData = cbind(plotData, origData)
+plotData$lb = plotData$state1 - seData[1] 
+plotData$ub = plotData$state1 + seData[1] 
+ggplot(data=plotData, aes(x=time, y=state1)) + geom_line() + geom_point(aes(x = time, y = orig1)) + geom_line(aes(x = time, y = lb), plotData, lty = 'dashed')+ geom_line(aes(x = time, y = ub), plotData, lty = 'dashed')+theme_bw()
+
+#unstable state space with industry index in addition to individual companies============================================================================
+#define inputs
+#state equation
+#B is diagonal and 1 except for the industry index and covariates
+source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getB.R")
+B1 = getB(numCos, "equal")
+#U must be zero if we are to estimate B
+U1 = "zero"
+#U1 = "unconstrained"
+#Q is diagonal, with zeros on the observation diagonals, equal or unequal
+source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getQ2.R")
+Q1 = getQ2(numCos, "unequal")
+#observation equation
+#Z is diagnoal, since each observation comes from on thing; allow Z to be diag and equal at top, then 1
+source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getZ2.R")
+Z1 = getZ2(numCos)
+#a is zero--signals are centered around the true value, TBD
+A1 = "zero"
+#R allows each company to have its own error in signals--each company has different bias in reporting, no error in our covar signal, TBD maybe unequal
+source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getR2.R")
+R1 = getR2(numCos)
+#source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getR.R")
+#R1 = getR(numCos)
+#initial values
+#initial values will be default, meaning that we assume that initial states are an estimated parameter with zero variance
+#model list
+x0=twoVarInput[,1,drop=FALSE]
+model.list = list(B=B1, U =U1, Q=Q1, Z=Z1, A=A1, R=R1)
+model.list$tinitx=1
+model.list$x0=x0
+#control.list = list(allow.degen = TRUE, trace =1)
+control.list = list(safe = TRUE, trace =1, allow.degen= TRUE) #, maxit = 1000
+#run model
+newB.model = MARSS(twoVarInput, model = model.list, miss.value =NA, contol = control.list) #runs but does not converge
+#plot
+plotData =data.frame(t(newB.model$states))
+seData = t(newB.model$states.se[,1])
+origData = data.frame(t(twoVarInput))
+nameVect = c(1:ncol(origData))
+nameVect = paste("orig", nameVect, sep = "")
+colnames(origData) = nameVect
+plotData$time = c(1:nrow(plotData))
+plotData = cbind(plotData, origData)
+plotData$lb = plotData$state1 - seData[1] 
+plotData$ub = plotData$state1 + seData[1] 
+ggplot(data=plotData, aes(x=time, y=state1)) + geom_line() + geom_point(aes(x = time, y = orig1)) + geom_line(aes(x = time, y = lb), plotData, lty = 'dashed')+ geom_line(aes(x = time, y = ub), plotData, lty = 'dashed')+theme_bw()

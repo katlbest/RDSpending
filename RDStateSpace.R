@@ -194,10 +194,10 @@
     }
 write.csv(output.data, file = "C:/Users/Katharina/Documents/Umich/RDSpend/test.csv")
 
-#single-factor dfa models for industry index: r&d signal, all industries==========================================================
+#single-factor dfa models for industry index: r&d signal, all industries, trying multiple configurations==========================================================
 output.data = data.frame(matrix(ncol = 6, nrow = 0))
 colnames(output.data)= c("industryName", "A", "U", "logLik", "numParams", "AICc")
-for (k in 1:length(oneVarList)){
+for (k in 187:length(oneVarList)){
   oneVarInput = oneVarList[[k]]
   twoVarInput = twoVarList[[k]]
   numCos = numCosList[[k]]
@@ -249,7 +249,107 @@ for (k in 1:length(oneVarList)){
     }
   }
 
+#single-factor dfa models for industry index: r&d signal, all industries, best configuration==========================================================
+output.data = data.frame(matrix(ncol = 4, nrow = 0))
+colnames(output.data)= c("industryName", "logLik", "numParams", "AICc")
+for (k in 1:length(oneVarList)){
+  oneVarInput = oneVarList[[k]]
+  twoVarInput = twoVarList[[k]]
+  numCos = numCosList[[k]]
+  industryData = dataList[[k]]
+  industryName = nameVector[k] 
+  
+  #set model inputs
+  BAll = "identity"
+  QAll= "diagonal and unequal" #note this could be changed if it causes problems since the unequal portion is irrelevant (it is a 1 by 1 matrix)
+  source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getZCol.R")
+  source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getR.R")
+  ZAll = getZCol(numCos, "equal")
+  RAll = getR(numCos)
+  AAll = "zero"
+  UAll = "equal"
+  
+  #set model controls, if necessary
+  control.list = list(safe = TRUE, trace =1, allow.degen= TRUE)#, maxit = 1000)
+  
+  #run models
+    stringList = c()
+    model.list = list(B=BAll, U=UAll, Q=QAll, Z=ZAll, A=AAll, R=RAll)
+    model.current = MARSS(twoVarInput, model = model.list, miss.value =NA, control = control.list)
+    if (is.null(model.current$num.params)){
+      numParams = NA
+      AICc = NA
+    } else{
+      numParams = model.current$num.params
+      AICc = model.current$AICc
+    }
+    if (is.null(model.current$logLik)){
+      logLik = NA
+    }else{
+      logLik = model.current$logLik
+    }
+    cur.outdata =data.frame(industry= industryName, logLik = logLik, numParams = numParams, AICc = AICc, stringsAsFactors = FALSE)
+    colnames(cur.outdata)= colnames(output.data)
+    output.data= rbind(output.data, cur.outdata)
+    modelString = paste("model", industryName, sep = ".")
+    stringList = c(stringList, modelString)
+    assign(paste("model", industryName, sep = "."), model.current)
+}
+
+#get individual company models=====================================================================
+output.data = data.frame(matrix(ncol = 5, nrow = 0))
+colnames(output.data)= c("industryName","companyName", "logLik", "numParams", "AICc")
+#set model inputs--TBD
+  BAll = "identity"
+  QAll= "diagonal and unequal" #note this could be changed if it causes problems since the unequal portion is irrelevant (it is a 1 by 1 matrix)
+  source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getZCol.R")
+  ZAll = getZCol(numCos, "equal")
+  RAll = getR(numCos)
+  AAll = "zero"
+  UAll = "equal"
+
+#set model controls, if necessary
+  control.list = list(safe = TRUE, trace =1, allow.degen= TRUE)#, maxit = 1000)
+
+for (k in 1:length(nameVector)){
+  curModel = eval(parse(text=paste("model", industryName, sep = ".")))
+  oneVarInput = oneVarList[[k]]
+  twoVarInput = twoVarList[[k]]
+  numCos = numCosList[[k]]
+  industryName = nameVector[k] 
+  
+  #create input file for each company
+  companyNameVector = rownames(twoVarInput)
+  companyNameVector = levels(as.factor(companyNameVector))
+  for (i in 1:length(companyNameVector)){
+    curData = rbind(twoVarInput[i,], twoVarInput[i+length(companyNameVector),])
+    companyName = companyNameVector[i]
+    #run models
+      model.list = list(B=BAll, U=UAll, Q=QAll, Z=ZAll, A=AAll, R=RAll)
+      model.current = MARSS(twoVarInput, model = model.list, miss.value =NA, control = control.list)
+      if (is.null(model.current$num.params)){
+        numParams = NA
+        AICc = NA
+      } else{
+        numParams = model.current$num.params
+        AICc = model.current$AICc
+      }
+      if (is.null(model.current$logLik)){
+        logLik = NA
+      }else{
+        logLik = model.current$logLik
+      }
+    #set output
+      cur.outdata =data.frame(industry= industryName, company = companyName, logLik = logLik, numParams = numParams, AICc = AICc, stringsAsFactors = FALSE)
+      colnames(cur.outdata)= colnames(output.data)
+      output.data= rbind(output.data, cur.outdata)
+      modelString = paste("model", industryName, companyName, sep = ".")
+      assign(modelString, model.current)  
+  }
+}
+
 write.csv(output.data, file = "C:/Users/Katharina/Documents/Umich/RDSpend/test.csv")
+write.csv(nameVector, file = "C:/Users/Katharina/Documents/Umich/RDSpend/industryList.csv")
 
 
 

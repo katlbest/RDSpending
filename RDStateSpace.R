@@ -231,10 +231,11 @@ write.csv(outputLm, 'C:/Users/Katharina/Documents/Umich/RDSpend/test2.csv')
         rownames(dCo)= c("IndAvg")
         covarList[[n]] = dCo
         inputList[[n]]= coData
-      #run model
-        model.list = list(B=BAll, U=UAll, Q=QAll, A=AAll, R=RAll,  Z=ZAll, d= dCo, D = "unconstrained")
-        model.current = MARSS(coData, model = model.list, miss.value =NA, control = control.list)
-      #store output
+        if (length(which(is.na(dCo)))==0){
+          #run model
+          model.list = list(B=BAll, U=UAll, Q=QAll, A=AAll, R=RAll,  Z=ZAll, d= dCo, D = "unconstrained")
+          model.current = MARSS(coData, model = model.list, miss.value =NA, control = control.list)
+          #store output
           if (is.null(model.current$num.params)){
             numParams = NA
             AICc = NA
@@ -247,7 +248,13 @@ write.csv(outputLm, 'C:/Users/Katharina/Documents/Umich/RDSpend/test2.csv')
           }else{
             logLik = model.current$logLik
           }
-          cur.outdata =data.frame(industry = industryName, company = companyName, logLik = model.current$logLik, numParams = numParams, AICc = AICc, stringsAsFactors = FALSE)
+        } else{
+          numParams = NA
+          AICc=NA
+          logLik = NA
+          model.current = NA
+        }
+          cur.outdata =data.frame(industry = industryName, company = companyName, logLik = logLik, numParams = numParams, AICc = AICc, stringsAsFactors = FALSE)
           colnames(cur.outdata)= colnames(output.data)
           output.data= rbind(output.data, cur.outdata)
           assign(paste("model.", industryName, companyName, sep = "."), model.current)   

@@ -135,7 +135,132 @@
   #model.data is the single variable file
   #model.data2 is the multivariable file
   #covariates cannot have missing datas
-    
+  
+#do variance decomposition==================================================
+  outputData = data.frame()
+  output.data = data.frame(matrix(ncol =5, nrow = 0))
+  colnames(output.data)= c("industry", "numCompanies", "numCompaniesRecip", "SE", "SD")
+  outputLm = data.frame()
+  outputLm = data.frame(matrix(ncol =6, nrow = 0))
+  colnames(outputLm)= c("industry", "Coeff_NumCos", "Coeff_Constant", "p_NumCos", "p_Constant", "R2")
+  industryAvgVector = list()
+  for (k in 1:length(oneVarList)){
+    curData = oneVarList[[k]]
+    industryName = nameVector[k] 
+    cum.output = data.frame(matrix(ncol =5, nrow = 0))
+    colnames(cum.output)= c("industry", "numCompanies", "numCompaniesRecip", "SE", "SD")
+    industryAvgVector[[k]]=rep(NA, ncol(curData))
+    for (i in 1:ncol(curData)){#for each year
+      curYear = c(na.exclude(curData[,i]))
+      curNumCo = length(curYear)
+      if (curNumCo>1){ #we have a data point
+        sd(curYear)
+        sd(curYear)/sqrt(curNumCo)
+        cur.outdata =data.frame(industry = industryName, numCompanies= curNumCo, numCompaniesRecip = 1/curNumCo, SE = sd(curYear)/sqrt(curNumCo), SD = sd(curYear), stringsAsFactors = FALSE)
+        colnames(cur.outdata)= colnames(output.data)
+        output.data= rbind(output.data, cur.outdata)
+        colnames(cur.outdata)= colnames(cum.output)
+        cum.output= rbind(cum.output, cur.outdata)
+        industryAvgVector[[k]][i]= mean(curYear)
+      }
+    }
+    cum.output$Var = (cum.output$SD)^2
+    cum.output$errorCoeff = 1
+    curVarDecomp = lm(Var~0+ numCompaniesRecip+errorCoeff, data = cum.output)
+    curNumCoeff =  summary(curVarDecomp)$coefficients[1,1]
+    curNumP =  summary(curVarDecomp)$coefficients[1,4]
+    if (dim(summary(curVarDecomp)$coefficients)[1]>1){
+      curConstCoeff =  summary(curVarDecomp)$coefficients[2,1]
+      curConstP =  summary(curVarDecomp)$coefficients[2,4]
+    } else{
+      curConstCoeff =  NA
+      curConstP =  NA
+    }
+    curR2 = summary(curVarDecomp)$r.square
+    cur.lmdata =data.frame(industry = industryName, coeff1 = curNumCoeff, coeff2 = curConstCoeff, p1 = curNumP, p2 = curConstP, r2 = curR2, stringsAsFactors = FALSE)
+    colnames(cur.lmdata)= colnames(outputLm)
+    outputLm= rbind(outputLm, cur.lmdata)
+  }
+output.data$Var = (output.data$SD)^2
+output.data$errorCoeff = 1
+varDecomp = lm(Var~0+ numCompaniesRecip+errorCoeff, data = output.data)
+write.csv(outputLm, 'C:/Users/Katharina/Documents/Umich/RDSpend/test2.csv')
+
+#including industry average as a covariate=============================================
+  output.data = data.frame(matrix(ncol = 5, nrow = 0))
+  colnames(output.data)= c("industry", "company", "logLik", "numParams", "AICc")
+  #set constant parameters
+  BAll = "identity"
+  QAll= "diagonal and equal" #1 by 1
+  AAll = "unconstrained"
+  UAll = "equal" #could be zero if it doesnt run
+  source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getZColSmall.R")
+  source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getR.R")
+  #ZAll = getZColSmall(2)
+  ZAll = "identity"
+  RAll = getR(1)
+  covarList = list()
+  inputList = list()
+  modelList = list()
+  n =1
+  control.list = list(safe = TRUE, trace =1, allow.degen= TRUE)#, maxit = 1000)
+  for (i in 1:length(oneVarList)){ #industry loop
+    curData = twoVarList[[i]]
+    industryName = nameVector[i] 
+    companyNameVector = rownames(curData)[1:(nrow(curData)/2)]
+    curAvg = industryAvgVector[[i]]
+    for (j in 1:(nrow(curData)/2)){#for each company, run model
+      companyName = companyNameVector[j]
+      coData = rbind(curData[j,], curData[j+length(companyNameVector),])
+      #remove all parts of covariate where our co. is missing
+        nonNA1 = which(!is.na(coData[1,])) #first row
+        startIndex1 = min(nonNA1)
+        endIndex1 = max(nonNA1)
+        nonNA2 = which(!is.na(coData[2,])) #second row
+        startIndex2 = min(nonNA2)
+        endIndex2 = max(nonNA2)
+        curAvgTruncated = curAvg[max(startIndex1, startIndex2):min(endIndex1, endIndex2)]#removed all parts of covariate where our co. is missing
+        coData = coData[,max(startIndex1, startIndex2):min(endIndex1, endIndex2)]
+      #remove any entries where index is missing
+        nonNA = which(!is.na(curAvgTruncated))
+        startIndex = min(nonNA)
+        endIndex = max(nonNA)
+        curAvgTruncated = curAvgTruncated[startIndex:endIndex]#removed all parts of covariate where our co. is missing
+        coData = coData[,startIndex:endIndex]
+        dCo= t(matrix(curAvgTruncated))
+        rownames(dCo)= c("IndAvg")
+        covarList[[n]] = dCo
+        inputList[[n]]= coData
+      #run model
+        model.list = list(B=BAll, U=UAll, Q=QAll, A=AAll, R=RAll,  Z=ZAll, d= dCo, D = "unconstrained")
+        model.current = MARSS(coData, model = model.list, miss.value =NA, control = control.list)
+      #store output
+          if (is.null(model.current$num.params)){
+            numParams = NA
+            AICc = NA
+          }else{
+            numParams = model.current$num.params
+            AICc = model.current$AICc
+          }
+          if (is.null(model.current$logLik)){
+            logLik = NA
+          }else{
+            logLik = model.current$logLik
+          }
+          cur.outdata =data.frame(industry = industryName, company = companyName, logLik = model.current$logLik, numParams = numParams, AICc = AICc, stringsAsFactors = FALSE)
+          colnames(cur.outdata)= colnames(output.data)
+          output.data= rbind(output.data, cur.outdata)
+          assign(paste("model.", industryName, companyName, sep = "."), model.current)   
+          modelList[[n]]= model.current
+          n = n+1
+    } 
+  }
+#we may have to check that covar list has no missing values, if it crashes
+  #runs if Z = identity, U is equal, A is 0
+  #also runs if Z is identity, U is equal, and A is unconstrained--this might work!
+  #does not run if Z is the way I said above
+
+
 #single-factor dfa models for industry index: r&d signal, single industry==========================================================
   #select industry
     industryIndex = 3
@@ -252,7 +377,7 @@ for (k in 187:length(oneVarList)){
 #single-factor dfa models for industry index: r&d signal, all industries, best configuration==========================================================
 output.data = data.frame(matrix(ncol = 4, nrow = 0))
 colnames(output.data)= c("industryName", "logLik", "numParams", "AICc")
-for (k in 1:length(oneVarList)){
+for (k in 187:length(oneVarList)){
   oneVarInput = oneVarList[[k]]
   twoVarInput = twoVarList[[k]]
   numCos = numCosList[[k]]
@@ -295,6 +420,7 @@ for (k in 1:length(oneVarList)){
     stringList = c(stringList, modelString)
     assign(paste("model", industryName, sep = "."), model.current)
 }
+#save.image(file = "industryIndexes.RData")
 
 #get individual company models=====================================================================
 output.data = data.frame(matrix(ncol = 5, nrow = 0))

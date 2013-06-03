@@ -230,21 +230,16 @@ for (i in 1:length(oneVarList)){ #industry loop
 }
 
 #including industry average as a covariate=============================================
-source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getZColSmall.R")
-levels.Z = list()
-levels.Z[[1]]= getZColSmall(2)
-levels.Z[[2]] = matrix(list(1,1))
-levels.U = c("zero", "equal")
-#ZAll = getZColSmall(2)
-#ZAll = matrix(list(1,1))
-#UAll = "equal" #could be zero or equal
-
-  output.data = data.frame(matrix(ncol = 8, nrow = 0))
-  colnames(output.data)= c("industry", "company", "u", "Z", "logLik", "numParams", "AICc", "modtype")
+  
+  output.data = data.frame(matrix(ncol = 6, nrow = 0))
+  colnames(output.data)= c("industry", "company", "logLik", "numParams", "AICc", "modtype")
   #set constant parameters
   BAll = matrix(list(1))
   QAll= "diagonal and equal" #1 by 1
   AAll = "zero"
+  UAll = "zero"
+  ZAll = getZColSmall(2)
+  source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getZColSmall.R")
   source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getR.R")
   RAll = getR(1)
   covarList = list()
@@ -252,8 +247,6 @@ levels.U = c("zero", "equal")
   modelList = list()
   n =1
   control.list = list(safe = TRUE, trace =1, allow.degen= TRUE)#, maxit = 1000)
-for (k in 1:length(levels.U)){
-  for (l in 1:length(levels.Z)){
   for (i in 1:2){#1:length(oneVarList)){ #industry loop
     curData = twoVarList[[i]]
     industryName = nameVector[i] 
@@ -292,7 +285,7 @@ for (k in 1:length(levels.U)){
        #       sum(coData[1,][!is.na(coData[1,])]>0)>1 &
        #       sum(coData[2,][!is.na(coData[1,])]>0)>1){
           #run model
-          model.list = list(B=BAll, U=levels.U[k], Q=QAll, A=AAll, R=RAll,  Z=levels.Z[[l]], c= cCo, C = "unconstrained")
+          model.list = list(B=BAll, U=UAll, Q=QAll, A=AAll, R=RAll,  Z=ZAll, c= cCo, C = "unconstrained")
           model.current = MARSS(coData, model = model.list, miss.value =NA, control = control.list)
           #store output
           if (is.null(model.current$num.params)){
@@ -334,10 +327,10 @@ for (k in 1:length(levels.U)){
           logLik = NA
           model.current = NA
         }
-          cur.outdata =data.frame(industry = industryName, company = companyName, u = levels.U[k], z = levels.Z[[l]], logLik = logLik, numParams = numParams, AICc = AICc, modtype = modtype, stringsAsFactors = FALSE)
+          cur.outdata =data.frame(industry = industryName, company = companyName, logLik = logLik, numParams = numParams, AICc = AICc, modtype = modtype, stringsAsFactors = FALSE)
           colnames(cur.outdata)= colnames(output.data)
           output.data= rbind(output.data, cur.outdata)
-          assign(paste("model", industryName, companyName, toString(levels.U[k]), toString(levels.Z[[l]]), sep = "."), model.current)   
+          assign(paste("model", industryName, companyName, sep = "."), model.current)   
           modelList[[n]]= model.current
           n = n+1
     } 

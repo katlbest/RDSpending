@@ -344,7 +344,7 @@ for (k in 1:length(levels.U)){
   }
   }
 }
-write.csv(output.data,file = "C:/Users/Katharina/Documents/Umich/RDSpend/test.csv")
+write.csv(as.matrix(output.data),file = "C:/Users/Katharina/Documents/Umich/RDSpend/test.csv")
 save.image(file = "covariateMod1.RData")
 save.image(file = "covariateMod2.RData")
 #we may have to check that covar list has no missing values, if it crashes

@@ -185,26 +185,76 @@ output.data$Var = (output.data$SD)^2
 output.data$errorCoeff = 1
 varDecomp = lm(Var~0+ numCompaniesRecip+errorCoeff, data = output.data)
 write.csv(outputLm, 'C:/Users/Katharina/Documents/Umich/RDSpend/test2.csv')
+save.image(file = "varDecomp.RData")
+
+#print missingness of the number of patents variable==========================================
+output.data = data.frame(matrix(ncol = 8, nrow = 0))
+colnames(output.data)= c("industry", "company", "tot", "zero", "na",  "tot2", "zero2", "na2")
+for (i in 1:length(oneVarList)){ #industry loop
+  curData = twoVarList[[i]]
+  industryName = nameVector[i] 
+  companyNameVector = rownames(curData)[1:(nrow(curData)/2)]
+  curAvg = industryAvgVector[[i]]
+  for (j in 1:(nrow(curData)/2)){#for each company, run model
+    companyName = companyNameVector[j]
+    coData = rbind(curData[j,], curData[j+length(companyNameVector),])
+    #remove all parts of covariate where our co. is missing
+    nonNA1 = which(!is.na(coData[1,])) #first row
+    startIndex1 = min(nonNA1)
+    endIndex1 = max(nonNA1)
+    nonNA2 = which(!is.na(coData[2,])) #second row
+    startIndex2 = min(nonNA2)
+    endIndex2 = max(nonNA2)
+    curAvgTruncated = curAvg[max(startIndex1, startIndex2):min(endIndex1, endIndex2)]#removed all parts of covariate where our co. is missing
+    coData = coData[,max(startIndex1, startIndex2):min(endIndex1, endIndex2)]
+    #remove any entries where index is missing
+    nonNA = which(!is.na(curAvgTruncated))
+    startIndex = min(nonNA)
+    endIndex = max(nonNA)
+    curAvgTruncated = curAvgTruncated[startIndex:endIndex]#removed all parts of covariate where our co. is missing
+    coData = coData[,startIndex:endIndex]
+    cCo= t(matrix(curAvgTruncated))
+    rownames(cCo)= c("IndAvg")
+    patData = coData[2,]
+    totEntry = length(patData)
+    naEntry = length(patData[is.na(patData)==TRUE])
+    zeroEntry = length(na.exclude(patData)[na.exclude(patData) ==0])
+    rdData = coData[1,]
+    totEntry2 = length(rdData)
+    naEntry2 = length(rdData[is.na(rdData)==TRUE])
+    zeroEntry2 = length(na.exclude(rdData)[na.exclude(rdData) ==0])
+    cur.outdata =data.frame(industry = industryName, company = companyName, tot = totEntry,zero = zeroEntry, na = naEntry ,tot2 = totEntry2,zero2 = zeroEntry2, na2 = naEntry2,stringsAsFactors = FALSE)
+    colnames(cur.outdata)= colnames(output.data)
+    output.data= rbind(output.data, cur.outdata)
+  } 
+}
 
 #including industry average as a covariate=============================================
-  output.data = data.frame(matrix(ncol = 5, nrow = 0))
-  colnames(output.data)= c("industry", "company", "logLik", "numParams", "AICc")
+source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getZColSmall.R")
+levels.Z = list()
+levels.Z[[1]]= getZColSmall(2)
+levels.Z[[2]] = matrix(list(1,1))
+levels.U = c("zero", "equal")
+#ZAll = getZColSmall(2)
+#ZAll = matrix(list(1,1))
+#UAll = "equal" #could be zero or equal
+
+  output.data = data.frame(matrix(ncol = 8, nrow = 0))
+  colnames(output.data)= c("industry", "company", "u", "Z", "logLik", "numParams", "AICc", "modtype")
   #set constant parameters
-  BAll = "identity"
+  BAll = matrix(list(1))
   QAll= "diagonal and equal" #1 by 1
-  AAll = "unconstrained"
-  UAll = "equal" #could be zero if it doesnt run
-  source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getZColSmall.R")
+  AAll = "zero"
   source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getR.R")
-  #ZAll = getZColSmall(2)
-  ZAll = "identity"
   RAll = getR(1)
   covarList = list()
   inputList = list()
   modelList = list()
   n =1
   control.list = list(safe = TRUE, trace =1, allow.degen= TRUE)#, maxit = 1000)
-  for (i in 1:length(oneVarList)){ #industry loop
+for (k in 1:length(levels.U)){
+  for (l in 1:length(levels.Z)){
+  for (i in 1:2){#1:length(oneVarList)){ #industry loop
     curData = twoVarList[[i]]
     industryName = nameVector[i] 
     companyNameVector = rownames(curData)[1:(nrow(curData)/2)]
@@ -227,13 +277,22 @@ write.csv(outputLm, 'C:/Users/Katharina/Documents/Umich/RDSpend/test2.csv')
         endIndex = max(nonNA)
         curAvgTruncated = curAvgTruncated[startIndex:endIndex]#removed all parts of covariate where our co. is missing
         coData = coData[,startIndex:endIndex]
-        dCo= t(matrix(curAvgTruncated))
-        rownames(dCo)= c("IndAvg")
-        covarList[[n]] = dCo
+        coData[coData[2,]==0] = NA
+        cCo= t(matrix(curAvgTruncated))
+        rownames(cCo)= c("IndAvg")
+        covarList[[n]] = cCo
         inputList[[n]]= coData
-        if (length(which(is.na(dCo)))==0){
+        patData = coData[2,]
+        patUsable = length(patData)-length(patData[is.na(patData)==TRUE])-length(na.exclude(patData)[na.exclude(patData) ==0])
+        rdData = coData[1,]
+        rdUsable = length(rdData)-length(rdData[is.na(rdData)==TRUE])-length(na.exclude(rdData)[na.exclude(rdData) ==0])
+        if(rdUsable > 3 & patUsable > 3){
+          modtype =1
+       # if (length(which(is.na(cCo)))==0 &
+       #       sum(coData[1,][!is.na(coData[1,])]>0)>1 &
+       #       sum(coData[2,][!is.na(coData[1,])]>0)>1){
           #run model
-          model.list = list(B=BAll, U=UAll, Q=QAll, A=AAll, R=RAll,  Z=ZAll, d= dCo, D = "unconstrained")
+          model.list = list(B=BAll, U=levels.U[k], Q=QAll, A=AAll, R=RAll,  Z=levels.Z[[l]], c= cCo, C = "unconstrained")
           model.current = MARSS(coData, model = model.list, miss.value =NA, control = control.list)
           #store output
           if (is.null(model.current$num.params)){
@@ -248,20 +307,46 @@ write.csv(outputLm, 'C:/Users/Katharina/Documents/Umich/RDSpend/test2.csv')
           }else{
             logLik = model.current$logLik
           }
+        } else if(rdUsable > 3 & patUsable ==0){
+          #run different model
+          modtype = 2
+          print("other")
+          numParams = NA
+          AICc=NA
+          logLik = NA
+          model.current = NA
+          #if (is.null(model.current$num.params)){
+          #  numParams = NA
+          #  AICc = NA
+          #}else{
+          #  numParams = model.current$num.params
+          #  AICc = model.current$AICc
+          #}
+          #if (is.null(model.current$logLik)){
+          #  logLik = NA
+          #}else{
+          #  logLik = model.current$logLik
+          #}
         } else{
+          modtype = 3
           numParams = NA
           AICc=NA
           logLik = NA
           model.current = NA
         }
-          cur.outdata =data.frame(industry = industryName, company = companyName, logLik = logLik, numParams = numParams, AICc = AICc, stringsAsFactors = FALSE)
+          cur.outdata =data.frame(industry = industryName, company = companyName, u = levels.U[k], z = levels.Z[[l]], logLik = logLik, numParams = numParams, AICc = AICc, modtype = modtype, stringsAsFactors = FALSE)
           colnames(cur.outdata)= colnames(output.data)
           output.data= rbind(output.data, cur.outdata)
-          assign(paste("model.", industryName, companyName, sep = "."), model.current)   
+          assign(paste("model", industryName, companyName, toString(levels.U[k]), toString(levels.Z[[l]]), sep = "."), model.current)   
           modelList[[n]]= model.current
           n = n+1
     } 
   }
+  }
+}
+write.csv(output.data,file = "C:/Users/Katharina/Documents/Umich/RDSpend/test.csv")
+save.image(file = "covariateMod1.RData")
+save.image(file = "covariateMod2.RData")
 #we may have to check that covar list has no missing values, if it crashes
   #runs if Z = identity, U is equal, A is 0
   #also runs if Z is identity, U is equal, and A is unconstrained--this might work!

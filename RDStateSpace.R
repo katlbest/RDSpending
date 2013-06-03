@@ -247,7 +247,7 @@ for (i in 1:length(oneVarList)){ #industry loop
   modelList = list()
   n =1
   control.list = list(safe = TRUE, trace =1, allow.degen= TRUE)#, maxit = 1000)
-  for (i in 1:2){#1:length(oneVarList)){ #industry loop
+  for (i in 1:length(oneVarList)){ #industry loop
     curData = twoVarList[[i]]
     industryName = nameVector[i] 
     companyNameVector = rownames(curData)[1:(nrow(curData)/2)]
@@ -302,24 +302,23 @@ for (i in 1:length(oneVarList)){ #industry loop
           }
         } else if(rdUsable > 3 & patUsable ==0){
           #run different model
+          ZSingle = matrix(list("z1"))
+          RSingle = "diagonal and equal"
+          model.list = list(B=BAll, U=UAll, Q=QAll, A=AAll, R=RSingle,  Z=ZSingle, c= cCo, C = "unconstrained")
+          model.current = MARSS(coData[1,], model = model.list, miss.value =NA, control = control.list)
           modtype = 2
-          print("other")
-          numParams = NA
-          AICc=NA
-          logLik = NA
-          model.current = NA
-          #if (is.null(model.current$num.params)){
-          #  numParams = NA
-          #  AICc = NA
-          #}else{
-          #  numParams = model.current$num.params
-          #  AICc = model.current$AICc
-          #}
-          #if (is.null(model.current$logLik)){
-          #  logLik = NA
-          #}else{
-          #  logLik = model.current$logLik
-          #}
+          if (is.null(model.current$num.params)){
+            numParams = NA
+            AICc = NA
+          }else{
+            numParams = model.current$num.params
+            AICc = model.current$AICc
+          }
+          if (is.null(model.current$logLik)){
+            logLik = NA
+          }else{
+            logLik = model.current$logLik
+          }
         } else{
           modtype = 3
           numParams = NA
@@ -335,8 +334,6 @@ for (i in 1:length(oneVarList)){ #industry loop
           n = n+1
     } 
   }
-  }
-}
 write.csv(as.matrix(output.data),file = "C:/Users/Katharina/Documents/Umich/RDSpend/test.csv")
 save.image(file = "covariateMod1.RData")
 save.image(file = "covariateMod2.RData")

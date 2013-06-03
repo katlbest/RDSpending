@@ -246,6 +246,7 @@ for (i in 1:length(oneVarList)){ #industry loop
   inputList = list()
   modelList = list()
   n =1
+  missingCovarCount= 0
   control.list = list(safe = TRUE, trace =1, allow.degen= TRUE)#, maxit = 1000)
   for (i in 1:length(oneVarList)){ #industry loop
     curData = twoVarList[[i]]
@@ -272,6 +273,27 @@ for (i in 1:length(oneVarList)){ #industry loop
         coData = coData[,startIndex:endIndex]
         coData[coData[2,]==0] = NA
         cCo= t(matrix(curAvgTruncated))
+        naCCo = which(is.na(cCo))
+        #find breaks in naCCo
+        if (length(naCCo) >0){ #there are missing values
+          missingCovarCount = missingCovarCount+1 #increase counter
+          k=1
+          while (k <= length(naCCo)){ #for each entry in my missing indicator vector
+            curIndex = naCCo[k] #first missing index, original vector
+            endIndex = NA #last missing index, original vector
+            l = 0 #holds number of missing values beyond location k, plus 1
+            while(is.na(endIndex) & curIndex+l <= length(cCo)){
+              if (!is.na(cCo[curIndex+l])){
+                endIndex = curIndex+l-1
+              }
+              l = l+1
+            }
+            outVect = seq(cCo[curIndex-1], cCo[endIndex+1], (cCo[endIndex+1]-cCo[curIndex-1])/((endIndex-curIndex)+2))
+            cCo[curIndex:endIndex]= outVect[2:(length(outVect)-1)]
+              #mean(cCo[endIndex+1], cCo[curIndex-1])
+            k = k+l-1
+          }
+        }
         rownames(cCo)= c("IndAvg")
         covarList[[n]] = cCo
         inputList[[n]]= coData
@@ -281,44 +303,41 @@ for (i in 1:length(oneVarList)){ #industry loop
         rdUsable = length(rdData)-length(rdData[is.na(rdData)==TRUE])-length(na.exclude(rdData)[na.exclude(rdData) ==0])
         if(rdUsable > 3 & patUsable > 3){
           modtype =1
-       # if (length(which(is.na(cCo)))==0 &
-       #       sum(coData[1,][!is.na(coData[1,])]>0)>1 &
-       #       sum(coData[2,][!is.na(coData[1,])]>0)>1){
           #run model
-          model.list = list(B=BAll, U=UAll, Q=QAll, A=AAll, R=RAll,  Z=ZAll, c= cCo, C = "unconstrained")
-          model.current = MARSS(coData, model = model.list, miss.value =NA, control = control.list)
+            model.list = list(B=BAll, U=UAll, Q=QAll, A=AAll, R=RAll,  Z=ZAll, c= cCo, C = "unconstrained")
+            model.current = MARSS(coData, model = model.list, miss.value =NA, control = control.list)
           #store output
-          if (is.null(model.current$num.params)){
-            numParams = NA
-            AICc = NA
-          }else{
-            numParams = model.current$num.params
-            AICc = model.current$AICc
-          }
-          if (is.null(model.current$logLik)){
-            logLik = NA
-          }else{
-            logLik = model.current$logLik
-          }
+            if (is.null(model.current$num.params)){
+              numParams = NA
+              AICc = NA
+            }else{
+              numParams = model.current$num.params
+              AICc = model.current$AICc
+            }
+            if (is.null(model.current$logLik)){
+              logLik = NA
+            }else{
+              logLik = model.current$logLik
+            }
         } else if(rdUsable > 3 & patUsable ==0){
           #run different model
-          ZSingle = matrix(list("z1"))
-          RSingle = "diagonal and equal"
-          model.list = list(B=BAll, U=UAll, Q=QAll, A=AAll, R=RSingle,  Z=ZSingle, c= cCo, C = "unconstrained")
-          model.current = MARSS(coData[1,], model = model.list, miss.value =NA, control = control.list)
-          modtype = 2
-          if (is.null(model.current$num.params)){
-            numParams = NA
-            AICc = NA
-          }else{
-            numParams = model.current$num.params
-            AICc = model.current$AICc
-          }
-          if (is.null(model.current$logLik)){
-            logLik = NA
-          }else{
-            logLik = model.current$logLik
-          }
+            ZSingle = matrix(list("z1"))
+            RAllRSingle = "diagonal and equal"
+            model.list = list(B=BAll, U=UAll, Q=QAll, A=AAll, R=RSingle,  Z=ZSingle, c= cCo, C = "unconstrained")
+            model.current = MARSS(coData[1,], model = model.list, miss.value =NA, control = control.list)
+            modtype = 2
+            if (is.null(model.current$num.params)){
+              numParams = NA
+              AICc = NA
+            }else{
+              numParams = model.current$num.params
+              AICc = model.current$AICc
+            }
+            if (is.null(model.current$logLik)){
+              logLik = NA
+            }else{
+              logLik = model.current$logLik
+            }
         } else{
           modtype = 3
           numParams = NA

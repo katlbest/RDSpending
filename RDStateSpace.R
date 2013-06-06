@@ -230,7 +230,7 @@ for (i in 1:length(oneVarList)){ #industry loop
 }
 
 #including industry average as a covariate=============================================
-  
+#TBD should be tracking input data, etc.
   output.data = data.frame(matrix(ncol = 6, nrow = 0))
   colnames(output.data)= c("industry", "company", "logLik", "numParams", "AICc", "modtype")
   #set constant parameters
@@ -355,12 +355,70 @@ for (i in 1:length(oneVarList)){ #industry loop
   }
 write.csv(as.matrix(output.data),file = "C:/Users/Katharina/Documents/Umich/RDSpend/test.csv")
 save.image(file = "covariateMod1.RData")
-save.image(file = "covariateMod2.RData")
-#we may have to check that covar list has no missing values, if it crashes
-  #runs if Z = identity, U is equal, A is 0
-  #also runs if Z is identity, U is equal, and A is unconstrained--this might work!
-  #does not run if Z is the way I said above
+#save.image(file = "covariateMod2.RData")
 
+#get outputs 
+  stateList = list()
+  SEList = list()
+  AICList = data.frame(matrix(nrow = length(modelList), ncol = 1))
+  CIList = list()
+  colnames(AICList) = c("AIC")
+  completedList = c(1,4,5,6,9,11,17,21,22,38,42,43,44,46,50,53,55,57,65,66,74,79,80,81,83,90,91,95,96,97,98,100,101,104,107,109,114,116,120,126,134,139,146,151,163,165,166,168,173,174,175,176,177,179,180,186,187,188,189,190,199,202,204,205,208,209,211,213,214,215,217,218,222,226,232,239,240,242,243,244,245,248,249,250,251,252,253,255,257,261,262,263,265,271,272,281,283,284,286,287,288,289,291,295,297,299,305,310,311,314,316,317,318,319,320,321,322,323,324,326,327,328,329,330,332,333,334,337,341,342,343,345,350,352,353,359,365,366,371,373,377,382,383,388,392,393,395,396,397,400,401,403,404,407,411,412,413,422,424,425,430,431,435,439,442,451,452,456,458,461,471,480,481,493,497,503,505,507,508,510,512,513,517,519,520,524,525,527,529,534,535,536,537,539,540,544,546,547,550,552,553,555,556,559,560,561,562,563,565,568,569,570,572,575,578,582,584,586,587,588,590,592,597,599,602,603,605,606,607,608,612,613,616,622,623,624,625,628,633,637,638,639,640,641,643,645,646,650,651,652,653,659,661,662,663,668,669,671,676,677,680,682,684,685,686,694,696,698,706,707,710,714,718,719,720,721,722,723,725,727,728,729,732,733,734,738,739,741,742,743,744,745,747,748,756,757,758,759,762,764,767,769,770,773,774,775,776,778,780,786,789,792,805,806,807,808,809,811,812,815,817,818,819,820,821,823,831,834,839,840,842,850,852,853,854,857,859,861,863,869,870,871,873,874,878,879,881,882,891,893,895,897,898,900,901,902,903,905,910,911,916,919,921,923,925,926,927,930,931,932,933,934,935,938,942,945,947,956,957,961,962,963,965,966,969,971,975,977,978,981,982,990,996,997,998,999,1000,1001,1002,1006,1007,1008,1010,1013,1016,1021,1022,1023,1024,1025,1028,1029,1032,1036,1037,1040,1041,1044,1045,1047,1048,1049,1051,1054,1055,1056,1060,1061,1062,1068,1070,1072,1077,1081,1084,1089,1091,1092,1093,1094,1095,1096,1097,1098,1099,1102,1106,1108,1109,1110,1112,1115,1121,1122,1123,1125,1129,1131,1132,1133,1134,1135,1137,1139,1140,1143,1147,1150,1155,1156,1157,1161,1162,1163,1164,1165,1170,1174,1175,1176,1177,1178,1179,1181,1182,1184,1185,1187,1188,1195,1197,1199,1200,1201,1202,1206,1211,1212,1213,1215,1218,1219,1222,1224,1225,1226,1227,1232,1233,1235,1236,1239,1242,1245,1256,1260,1263,1268,1270,1271,1272,1273,1274,1275,1276,1277,1280,1281,1282,1283,1289,1290,1301,1316,1319,1325,1334,1335,1340,1341,1343,1345,1351,1352,1354,1356,1358,1361,1364,1379,1382,1383,1390,1397,1398,1400,1401,1403,1416,1430,1433,1435,1437,1438,1439,1443,1446,1447,1448,1451,1452,1453,1454,1456,1458,1459,1464,1467,1471,1473,1474,1475,1476,1480,1481,1484,1485,1486,1487,1490,1491,1492,1493,1503,1506,1507,1513,1517,1522,1527,1528,1529,1530,1531,1532,1534,1535,1538,1542,1543,1545,1546,1550,1552,1555,1557,1561,1565,1567,1569,1570,1572,1577,1578,1580,1581,1582,1584,1585,1587,1588,1594,1595,1596,1597,1598,1599,1601,1604,1605,1609,1611,1612,1614,1615,1620,1621,1622,1632,1635,1636,1640,1643,1644,1646,1648,1650,1656,1659,1671,1672,1677,1678,1681,1688,1695,1698,1703,1706,1711,1712,1723,1725,1734,1736,1739,1742,1745,1749,1752,1754,1761,1767,1771,1776,1785,1790,1791,1792,1794,1795,1797,1798,1807,1809,1812,1813,1817,1818,1819,1823,1825,1837,1839,1842,1844,1845,1846,1847,1849,1850,1853,1854,1860,1871,1872,1874,1875,1879,1880,1884,1890,1896,1898,1902,1903,1905,1906,1908,1911,1912,1913,1916,1918,1921,1922,1923,1924,1928,1929,1930,1931,1932,1934,1935,1937,1941,1944,1945,1947,1949,1950,1951,1953,1955,1956,1957,1958,1959,1961,1964,1965,1966,1969,1971,1974,1977,1978,1980,1981,1982,1985,1986,1987,1988,1989,1990,1992,1993,1995,1996,1998,1999,2000,2001,2003,2004,2005,2006,2007,2008,2009,2010,2012,2013,2014,2018,2021,2022,2025,2026,2027,2029,2031,2033,2034,2036,2037,2040,2041,2047,2050,2051,2052,2054,2055,2056,2059,2061,2062,2063,2065,2066,2069,2070,2072,2075,2077,2079,2082,2085,2086,2092,2097,2099,2102,2103,2108,2109,2110,2114,2116,2117,2119,2121,2129,2133,2134,2135,2139,2140,2143,2151,2153,2155,2157,2158,2159,2160,2161,2162,2163,2164,2165,2167,2168,2169,2172,2176,2177,2178,2179,2180,2181,2182,2183,2184,2185,2188,2189,2191,2193,2194,2195,2197,2198,2199,2201,2206,2207,2208,2210,2216,2217,2219,2221,2222,2223,2225,2227,2228)
+  completedList2  = c(2230,2231,2232,2233,2241,2245,2246,2248,2249,2250,2251,2253,2256,2258,2259,2260,2261,2265,2270,2271,2272,2279,2281,2284,2285,2289,2291,2293,2294,2301,2302,2304,2309,2312,2313,2314,2316,2317,2319,2327,2330,2332,2333,2334,2336,2337,2338,2339,2340,2342,2345,2347,2348,2352,2359,2364,2365,2368,2374,2377,2382,2383,2385,2387,2389,2390,2397,2398,2409,2410,2411,2414,2416,2419,2422,2424,2426,2427,2428,2430,2432,2434,2437,2438,2440,2443,2445,2446,2448,2449,2450,2451,2453,2455,2459,2460,2462,2463,2464,2468,2469,2471,2473,2475,2477,2478,2480,2482,2486,2487,2488,2490,2493,2498,2501,2502,2506,2509,2510,2511,2512,2513,2514,2515,2516,2517,2522,2523,2524,2525,2526,2527,2528,2533,2534,2536,2539,2541,2546,2548,2549,2551,2556,2557,2562,2563,2564,2566,2567,2569,2575,2576,2579,2580,2581,2584,2586,2588,2596,2597,2598,2604,2607,2611,2612,2616,2630,2633,2634,2635,2637,2639,2641,2642,2643,2646,2649,2650,2651,2653,2654)
+  completedList3 = c(2656,2657,2661,2662,2663,2665,2667,2668,2669,2670,2676,2678,2679,2681,2682,2685,2688,2690,2691,2694,2696,2699,2702,2703,2704,2708,2709,2711,2712,2715,2717,2720,2722,2726,2727,2731,2733,2738,2744,2747,2749,2750,2751,2753,2755,2756,2757,2760,2761,2765,2768,2770,2771,2772,2776,2777,2778,2780,2781,2782,2783,2785,2787,2788,2790,2800,2801,2804,2807,2812,2820,2823,2824,2826,2831,2846,2847,2849,2859,2860,2867,2875,2883,2901,2903,2905,2947,2949,2963,2987,2990,2991,2999,3006,3111,3226,3233,3258,3276,3297,3309,3312,3313,3315,3319,3320,3370,3385,3389,3390,3391,3393,3418,3432,3435,3436,3441,3451,3456,3459,3464,3465,3471,3472,3473,3481,3486,3493,3523,3525,3529,3544,3547,3557,3564,3567,3570,3594,3598,3607,3609,3650,3686,3702,3733,3749,3750,3752,3755,3758,3766,3781,3799,3810,3817,3832,3841,3861,3881,3899,3901,3924,3969,3980,3994,3997,4011,4030,4032,4037,4045,4046,4061,4070,4086,4093,4104,4105,4107)
+  completedList = c(completedList, completedList2)
+  completedList = c(completedList, completedList3)
+  for (i in 1:length(completedList)){
+    n= completedList[[i]]
+    AICList[i,1] = modelList[[n]]$AICc
+    stateList[[i]] = modelList[[n]]$states
+    SEList[[i]] = modelList[[n]]$states.se #standard errors on the states
+    #CIList[[i]] = MARSSparamCIs(modelList[[n]]) #, method = "parametric") fails to run
+    #curResiduals = residuals(model.list[[n]])
+  }
+
+lapply(stateList, write, "C:/Users/Katharina/Documents/Umich/RDSpend/test3.csv", append=TRUE, ncolumns=30)
+lapply(SEList, write, "C:/Users/Katharina/Documents/Umich/RDSpend/test4.csv", append=TRUE, ncolumns=30)
+
+#plot
+  plotlist= list()
+  n=1
+  for (i in 1:length(oneVarList)){ #industry loop
+    industryName = nameVector[i] 
+    curData = twoVarList[[i]]
+    companyNameVector = rownames(curData)[1:(nrow(curData)/2)]
+    curAvg = industryAvgVector[[i]]
+  for (j in 1:(nrow(curData)/2)){#for each company, run model
+    companyName = companyNameVector[j]
+    coData = inputList[[n]]
+    cCo = covarList[[n]]
+    modelName = paste("model", industryName, companyName, sep = ".")
+    model.current = eval(parse(text = modelName))
+    n = n+1
+    plotData = data.frame(t(model.current$states))
+    seData = t(model.current$states.se[,1])
+    origData = data.frame(t(coData))
+    plotData$time = c(1:nrow(plotData))
+    #plotData = cbind(plotData, origData)
+    plotData$lb = plotData$state1 - 1.96 *seData[1] 
+    plotData$ub = plotData$state1 + 1.96 *seData[1] 
+    plotList[[n]] = ggplot(data=plotData, aes(x=time, y=state1)) + geom_line()  + geom_line(aes(x = time, y = lb), plotData, lty = 'dashed')+ geom_line(aes(x = time, y = ub), plotData, lty = 'dashed')+theme_bw() + geom_point(aes(x = time, y = origData[,1])) + geom_point(aes(x = time, y = origData[,2]) ,colour="#CC0000") + labs(title=paste(industryName, companyName, sep = ","))
+  }
+  
+  
+  plotData =data.frame(t(newB.model$states))
+  seData = t(newB.model$states.se[,1])
+  origData = data.frame(t(twoVarInput))
+  nameVect = c(1:ncol(origData))
+  nameVect = paste("orig", nameVect, sep = "")
+  colnames(origData) = nameVect
+  plotData$time = c(1:nrow(plotData))
+  plotData = cbind(plotData, origData)
+  plotData$lb = plotData$state1 - seData[1] 
+  plotData$ub = plotData$state1 + seData[1] 
+  ggplot(data=plotData, aes(x=time, y=state1)) + geom_line() + geom_point(aes(x = time, y = orig1)) + geom_line(aes(x = time, y = lb), plotData, lty = 'dashed')+ geom_line(aes(x = time, y = ub), plotData, lty = 'dashed')+theme_bw() + geom_point(aes(x = time, y = orig2))+ geom_point(aes(x = time, y = orig3))+ geom_point(aes(x = time, y = orig4))+ geom_point(aes(x = time, y = orig5))+ geom_point(aes(x = time, y = orig6))+ geom_point(aes(x = time, y = orig7))+ geom_point(aes(x = time, y = orig8))+ geom_point(aes(x = time, y = orig9))
+  
+    
 
 #single-factor dfa models for industry index: r&d signal, single industry==========================================================
   #select industry
@@ -476,51 +534,80 @@ for (k in 187:length(oneVarList)){
   }
 
 #single-factor dfa models for industry index: r&d signal, all industries, best configuration==========================================================
-output.data = data.frame(matrix(ncol = 4, nrow = 0))
-colnames(output.data)= c("industryName", "logLik", "numParams", "AICc")
-for (k in 187:length(oneVarList)){
-  oneVarInput = oneVarList[[k]]
-  twoVarInput = twoVarList[[k]]
-  numCos = numCosList[[k]]
-  industryData = dataList[[k]]
+  #reduce 1 var and 2 var lists
+  redVarList = list()
+  for (k in 1:length(oneVarList)){
+    current=oneVarList[[k]]
+    current[current == 0]= NA
+    counters=apply(current,1,function(x) sum(!is.na(x)))
+    redVarList[[k]]=current[counters >3,]
+    print(dim(redVarList[[k]])[1]-dim(current)[1])
+  }
+
+
+output.data = data.frame(matrix(ncol = 6, nrow = 0))
+colnames(output.data)= c("industryName", "logLik", "numParams", "AICc", "States", "SEs")
+for (k in 1:length(redVarList)){
+  oneVarInput = redVarList[[k]]
+  numCos = nrow(oneVarInput)
+  #industryData = dataList[[k]]
   industryName = nameVector[k] 
   
-  #set model inputs
-  BAll = "identity"
-  QAll= "diagonal and unequal" #note this could be changed if it causes problems since the unequal portion is irrelevant (it is a 1 by 1 matrix)
-  source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getZCol.R")
-  source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getR.R")
-  ZAll = getZCol(numCos, "equal")
-  RAll = getR(numCos)
-  AAll = "zero"
-  UAll = "equal"
-  
-  #set model controls, if necessary
-  control.list = list(safe = TRUE, trace =1, allow.degen= TRUE)#, maxit = 1000)
-  
-  #run models
-    stringList = c()
-    model.list = list(B=BAll, U=UAll, Q=QAll, Z=ZAll, A=AAll, R=RAll)
-    model.current = MARSS(twoVarInput, model = model.list, miss.value =NA, control = control.list)
-    if (is.null(model.current$num.params)){
+  if (!(is.null(numCos))){ #meaning we have more than 1 company
+    if (numCos >1){
+      #set model inputs
+      BAll = "identity"
+      QAll= "diagonal and unequal" #note this could be changed if it causes problems since the unequal portion is irrelevant (it is a 1 by 1 matrix)
+      #source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getZCol.R")
+      #source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getR.R")
+      ZIN= rep("z1", numCos)
+      ZIN = as.list(ZIN)
+      ZAll = matrix(ZIN)
+      RAll = "diagonal and equal"
+      AAll = "zero"
+      UAll = "equal"
+      
+      #set model controls, if necessary
+      control.list = list(safe = TRUE, trace =1, allow.degen= TRUE)#, maxit = 1000)
+      
+      #run models
+        stringList = c()
+        model.list = list(B=BAll, U=UAll, Q=QAll, Z=ZAll, A=AAll, R=RAll)
+        model.current = MARSS(oneVarInput, model = model.list, miss.value =NA, control = control.list)
+        if (is.null(model.current$num.params)){
+          numParams = NA
+          AICc = NA
+          curStates = NA
+          curSE = NA
+        } else{
+          numParams = model.current$num.params
+          AICc = model.current$AICc
+          curState = toString(model.current$states)
+          curSE = toString(model.current$states.se)
+        }
+        if (is.null(model.current$logLik)){
+          logLik = NA
+        }else{
+          logLik = model.current$logLik
+        }
+      } 
+    } else{
       numParams = NA
       AICc = NA
-    } else{
-      numParams = model.current$num.params
-      AICc = model.current$AICc
-    }
-    if (is.null(model.current$logLik)){
+      curStates = NA
+      curSE = NA
       logLik = NA
-    }else{
-      logLik = model.current$logLik
+      model.current = NA
     }
-    cur.outdata =data.frame(industry= industryName, logLik = logLik, numParams = numParams, AICc = AICc, stringsAsFactors = FALSE)
+    cur.outdata =data.frame(industry= industryName, logLik = logLik, numParams = numParams, AICc = AICc, states = curState, ses = curSE, stringsAsFactors = FALSE)
     colnames(cur.outdata)= colnames(output.data)
     output.data= rbind(output.data, cur.outdata)
     modelString = paste("model", industryName, sep = ".")
     stringList = c(stringList, modelString)
-    assign(paste("model", industryName, sep = "."), model.current)
+    assign(paste("model-2stepSS", industryName, sep = "."), model.current)
 }
+save.image(file = "indIndexes2.RData")
+write.csv(output.data, file = "C:/Users/Katharina/Documents/Umich/RDSpend/test2.csv")
 #save.image(file = "industryIndexes.RData")
 
 #get individual company models=====================================================================
@@ -865,6 +952,7 @@ control.list = list(safe = TRUE, trace =1, allow.degen= TRUE)
 twoObsDiagZNewRnewQ.model = MARSS(model.data2, model = model.list, miss.value =NA, contol = control.list) #lowest AIC
 
 #unstable state space with B that allows for interactions-de facto industry index=================================================================
+#TBD this is the one we should fix if we are going to fix one
 indIndex = 1
 numCos =numCosList[[indIndex]]
 oneVarInput = oneVarList[[indIndex]]

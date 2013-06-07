@@ -201,7 +201,7 @@ for (i in 1:length(oneVarList)){ #industry loop
   BAll = matrix(list(1))
   QAll= "diagonal and equal" #1 by 1
   AAll = "zero"
-  UAll = "zero"
+  UAll = "unconstrained"
   ZAll = getZColSmall(2)
   source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getZColSmall.R")
   source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getR.R")
@@ -211,7 +211,7 @@ for (i in 1:length(oneVarList)){ #industry loop
   modelList = list()
   n=1
   missingCovarCount= 0
-  control.list = list(safe = TRUE, trace =1, allow.degen= TRUE)#, maxit = 1000)
+  control.list = list(safe = TRUE, trace =1, allow.degen= TRUE, maxit = 1000)
   for (i in 1:length(oneVarList)){ #industry loop
     curData = twoVarList[[i]]
     industryName = nameVector[i] 
@@ -265,7 +265,7 @@ for (i in 1:length(oneVarList)){ #industry loop
         patUsable = length(patData)-length(patData[is.na(patData)==TRUE])-length(na.exclude(patData)[na.exclude(patData) ==0])
         rdData = coData[1,]
         rdUsable = length(rdData)-length(rdData[is.na(rdData)==TRUE])-length(na.exclude(rdData)[na.exclude(rdData) ==0])
-        if(rdUsable > 3 & patUsable > 3){
+        if(rdUsable > 4 & patUsable > 4){
           modtype =1
           #run model
             model.list = list(B=BAll, U=UAll, Q=QAll, A=AAll, R=RAll,  Z=ZAll, c= cCo, C = "unconstrained")
@@ -283,7 +283,7 @@ for (i in 1:length(oneVarList)){ #industry loop
             }else{
               logLik = model.current$logLik
             }
-        } else if(rdUsable > 3 & patUsable ==0){
+        } else if(rdUsable > 6 & patUsable ==0){
           #run different model
             ZSingle = matrix(list("z1"))
             RAllRSingle = "diagonal and equal"
@@ -312,13 +312,13 @@ for (i in 1:length(oneVarList)){ #industry loop
         cur.outdata =data.frame(industry = industryName, company = companyName, logLik = logLik, numParams = numParams, AICc = AICc, modtype = modtype, stringsAsFactors = FALSE)
         colnames(cur.outdata)= colnames(output.data)
         output.data= rbind(output.data, cur.outdata)
-        assign(paste("model", industryName, companyName, sep = "."), model.current)   
+        assign(paste("modelbig", industryName, companyName, sep = "."), model.current)   
         modelList[[n]]= model.current
         n = n+1
     } 
   }
   write.csv(as.matrix(output.data),file = "C:/Users/Katharina/Documents/Umich/RDSpend/test.csv")
-  save.image(file = "covariateMod1.RData")
+  save.image(file = "covariateMod1big.RData")
 
 #get outputs from covariate model 1===========================================================
   stateList = list()
@@ -450,7 +450,7 @@ lapply(SEList, write, "C:/Users/Katharina/Documents/Umich/RDSpend/test4.csv", ap
         output.data= rbind(output.data, cur.outdata)
         modelString = paste("model", industryName, sep = ".")
         stringList = c(stringList, modelString)
-        assign(paste("model-twostepSS", industryName, sep = "."), model.current)
+        assign(paste("modelTwostepSS", industryName, sep = "."), model.current)
     }
     save.image(file = "indIndexes2.RData")
     write.csv(output.data, file = "C:/Users/Katharina/Documents/Umich/RDSpend/test2.csv")
@@ -474,8 +474,8 @@ colnames(output.data)= c("industry", "company", "logLik", "numParams", "AICc", "
     industryName = nameVector[i] 
     companyNameVector = rownames(curData)[1:(nrow(curData)/2)]
     curAvg = industryAvgVector[[i]]
-    nameString = paste("model-twostepSS", industryName, sep = ".")
-    indMod = eval(parse(text = nameString))
+    nameString = paste("modelTwostepSS", industryName, sep = ".")
+    indMod = eval(parse(text =nameString))
     #check if indMod is NA, extract q and set up R
     #TBD check for industry model, and add its error term
       q=

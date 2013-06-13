@@ -356,7 +356,7 @@ for (i in 1:length(oneVarList)){ #industry loop
     } 
   }
   write.csv(as.matrix(output.data),file = "C:/Users/Katharina/Documents/Umich/RDSpend/test.csv")
-  save.image(file = "covariateMod1big.RData")
+  save.image(file = "zone.RData")
 
 #get outputs from covariate model 1===========================================================
   stateList = list()
@@ -494,6 +494,39 @@ lapply(SEList, write, "C:/Users/Katharina/Documents/Umich/RDSpend/test4.csv", ap
     }
     save.image(file = "indIndexes2.RData")
     write.csv(output.data, file = "C:/Users/Katharina/Documents/Umich/RDSpend/test2.csv")
+
+  #plot industry index files
+  for (k in 1:length(redVarList)){
+    oneVarInput = redVarList[[k]]
+    numCos = nrow(oneVarInput)
+    industryName = nameVector[k] 
+    if (!(is.null(numCos))){ #meaning we have more than 1 company
+      if (numCos >1){
+        modelName = paste("modelTwostepSS", industryName, sep = ".")
+        model.current = eval(parse(text = modelName))
+        if (!(is.null(model.current$num.params))){  
+          plotData = data.frame(t(model.current$states))
+          seData = t(model.current$states.se[,1])
+          origData = data.frame(t(oneVarInput))
+          plotData$time = c(1:nrow(plotData))
+          #plotData = cbind(plotData, origData)
+          plotData$lb = plotData$state1 - 1.96 *seData[1] 
+          plotData$ub = plotData$state1 + 1.96 *seData[1] 
+          dev.off()
+          myPlot = ggplot(data=plotData, aes(x=time, y=state1)) + geom_line()  + geom_line(aes(x = time, y = lb), plotData, lty = 'dashed')+ geom_line(aes(x = time, y = ub), plotData, lty = 'dashed')+theme_bw() + labs(title=paste(industryName, sep = ","))
+          j = 24
+          for (i in 1:ncol(origData)){
+            curInput = paste("curCo", i, sep = "")
+            #addList[[length(addList)+1]]=geom_point(aes(x = time, y = eval(parse(text =paste("curCo", i, sep = "")))), colour = j)
+            addString = paste("geom_point(aes(x = time, y = origData[,", i, "]), colour = ",j,")", sep = "")
+            myPlot=  myPlot+ eval(parse(text = addString))
+            j = j+5
+          }
+          ggsave(paste("C:/Users/Katharina/Documents/Umich/rdspend/firststage/firststage", industryName, ".pdf", sep = ""))
+        }
+      }
+    }
+  }
 
 #get individual company models=====================================================================
 output.data = data.frame(matrix(ncol = 8, nrow = 0))

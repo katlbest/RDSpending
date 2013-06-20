@@ -419,23 +419,38 @@ lapply(SEList, write, "C:/Users/Katharina/Documents/Umich/RDSpend/test4.csv", ap
   do.call(marrangeGrob, argsList)
   dev.off()
   
+#INDMOD
 #single-factor dfa models for industry index: r&d signal, all industries, best configuration==========================================================
   #reduce 1 var and 2 var lists
   redVarList = list()
+  redVarList2 = list()
   for (k in 1:length(oneVarList)){
     current=oneVarList[[k]]
-    current[current == 0]= NA
-    counters=apply(current,1,function(x) sum(!is.na(x)))
+    current2 = twoVarList[[k]]
+    currenthold = current
+    currenthold[currenthold == 0]= NA
+    currenthold2 = current2
+    currenthold2[currenthold2 == 0]= NA
+    secondhalf = current2[(nrow(current2)/2+1):nrow(current2),]
+    secondhalf[secondhalf==0]=NA
+    current2[(nrow(current2)/2+1):nrow(current2),]= secondhalf
+    #current2[current2 == 0] = NA
+    counters=apply(currenthold,1,function(x) sum(!is.na(x)))
+    counters2=apply(currenthold2,1,function(x) sum(!is.na(x)))
     redVarList[[k]]=current[counters >4,]
+    redVarList2[[k]]= current2[counters2>4,]
     print(dim(redVarList[[k]])[1]-dim(current)[1])
-  }
+  } 
 
   #run model
-    output.data = data.frame(matrix(ncol = 6, nrow = 0))
-    colnames(output.data)= c("industryName", "logLik", "numParams", "AICc", "States", "SEs")
+    output.data = data.frame(matrix(ncol = 7, nrow = 0))
+    colnames(output.data)= c("industryName", "logLik", "numParams", "AICc", "States", "SEs", "converge")
     for (k in 1:length(redVarList)){
       oneVarInput = redVarList[[k]]
+      twoVarInput = redVarList2[[k]]
       numCos = nrow(oneVarInput)
+      numExtra = nrow(twoVarInput)-nrow(oneVarInput)
+      numTot = nrow(twoVarInput)
       #industryData = dataList[[k]]
       industryName = nameVector[k] 
       
@@ -446,12 +461,14 @@ lapply(SEList, write, "C:/Users/Katharina/Documents/Umich/RDSpend/test4.csv", ap
           QAll= "diagonal and unequal" #note this could be changed if it causes problems since the unequal portion is irrelevant (it is a 1 by 1 matrix)
           #source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getZCol.R")
           #source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getR.R")
-          ZIN= rep("z1", numCos)
+          ZIN= rep(1, numCos)
+          #ZIN= c(rep(1, numCos), rep("z1", numExtra))
           ZIN = as.list(ZIN)
-          ZAll = matrix(ZIN)
-          RAll = "diagonal and equal"
-          AAll = "zero"
-          UAll = "equal"
+          ZAll = matrix(ZIN, numCos,1)
+          #ZAll = matrix(ZIN, numTot, 1)
+          RAll = "equalvarcov"
+          AAll = "equal"
+          UAll = "zero"
           
           #set model controls, if necessary
           control.list = list(safe = TRUE, trace =1, allow.degen= TRUE)#, maxit = 1000)
@@ -465,11 +482,29 @@ lapply(SEList, write, "C:/Users/Katharina/Documents/Umich/RDSpend/test4.csv", ap
               AICc = NA
               curStates = NA
               curSE = NA
+              curConv = NA
             } else{
               numParams = model.current$num.params
               AICc = model.current$AICc
               curState = toString(model.current$states)
               curSE = toString(model.current$states.se)
+              curConv = model.current$converge
+              #plot
+                plotData = data.frame(t(model.current$states))
+                seData = t(model.current$states.se[,1])
+                origData = data.frame(t(oneVarInput))
+                plotData$time = c(1:nrow(plotData))
+                plotData$lb = plotData$state1 - 1.96 *seData[1] 
+                plotData$ub = plotData$state1 + 1.96 *seData[1] 
+                myPlot = ggplot(data=plotData, aes(x=time, y=state1)) + geom_line()  + geom_line(aes(x = time, y = lb), plotData, lty = 'dashed')+ geom_line(aes(x = time, y = ub), plotData, lty = 'dashed')+theme_bw() + labs(title=paste(industryName, sep = ","))
+                j = 24
+                for (i in 1:ncol(origData)){
+                  curInput = paste("curCo", i, sep = "")
+                  addString = paste("geom_point(aes(x = time, y = origData[,", i, "]), colour = ",j,")", sep = "")
+                  myPlot=  myPlot+ eval(parse(text = addString))
+                  j = j+5
+                }
+                ggsave(paste("C:/Users/Katharina/Documents/Umich/rdspend/firststage/firststageconfig6", industryName, ".pdf", sep = ""))
             }
             if (is.null(model.current$logLik)){
               logLik = NA
@@ -484,15 +519,16 @@ lapply(SEList, write, "C:/Users/Katharina/Documents/Umich/RDSpend/test4.csv", ap
           curSE = NA
           logLik = NA
           model.current = NA
+          curConv = NA
         }
-        cur.outdata =data.frame(industry= industryName, logLik = logLik, numParams = numParams, AICc = AICc, states = curState, ses = curSE, stringsAsFactors = FALSE)
+        cur.outdata =data.frame(industry= industryName, logLik = logLik, numParams = numParams, AICc = AICc, states = curState, ses = curSE, converge =curConv, stringsAsFactors = FALSE)
         colnames(cur.outdata)= colnames(output.data)
         output.data= rbind(output.data, cur.outdata)
         modelString = paste("model", industryName, sep = ".")
         stringList = c(stringList, modelString)
-        assign(paste("modelTwostepSS", industryName, sep = "."), model.current)
+        assign(paste("modelTwostepSSconfig6", industryName, sep = "."), model.current)
     }
-    save.image(file = "indIndexes2.RData")
+    save.image(file = "indIndexesconfig6.RData")
     write.csv(output.data, file = "C:/Users/Katharina/Documents/Umich/RDSpend/test2.csv")
 
   #plot industry index files

@@ -1,13 +1,20 @@
 getR<- function(n, type){
-  outMatrix = diag(2*n)
-  firstMatrix = outMatrix[1:n,]
-  secondMatrix = outMatrix[(n+1):(2*n),]
-  firstList = as.list(t(firstMatrix))
-  secondList = as.list(t(secondMatrix))
-  firstList[firstList==1]= "r1"
-  secondList[secondList==1]= "r2"
-  firstMatrix2 = matrix(firstList,2*n,n)
-  secondMatrix2 =matrix(secondList,2* n,n)
-  outMatrix = cbind(firstMatrix2, secondMatrix2)
+  outMatrix = diag(numTot)
+  firstMatrix = outMatrix[1:numCos,]
+  if(numTot>numCos){
+    secondMatrix = outMatrix[(numCos+1):(numTot),]
+    secondList = as.list(t(secondMatrix))
+    secondList[secondList==1]= "r2"
+    secondMatrix2 =matrix(secondList,numTot,numTot-numCos)
+    firstList = as.list(t(firstMatrix))
+    firstList[firstList==1]= "r1"
+    firstMatrix2 = matrix(firstList,numTot,numCos)
+    outMatrix = cbind(firstMatrix2, secondMatrix2)
+  }else{
+    firstList = as.list(t(firstMatrix))
+    firstList[firstList==1]= "r1"
+    firstMatrix2 = matrix(firstList,numTot,numCos)
+    outMatrix = firstMatrix2
+  }
   return(outMatrix)
  }

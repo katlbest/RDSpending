@@ -460,13 +460,14 @@ lapply(SEList, write, "C:/Users/Katharina/Documents/Umich/RDSpend/test4.csv", ap
           BAll = "identity"
           QAll= "diagonal and unequal" #note this could be changed if it causes problems since the unequal portion is irrelevant (it is a 1 by 1 matrix)
           #source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getZCol.R")
-          #source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getR.R")
-          ZIN= rep(1, numCos)
+          source("C:/Users/Katharina/Documents/Umich/RDSpend/RCode/RDSpending/fun_getR.R")
+          ZIN= rep(1, numTot)
           #ZIN= c(rep(1, numCos), rep("z1", numExtra))
           ZIN = as.list(ZIN)
-          ZAll = matrix(ZIN, numCos,1)
-          #ZAll = matrix(ZIN, numTot, 1)
-          RAll = "equalvarcov"
+          #ZAll = matrix(ZIN, numCos,1)
+          ZAll = matrix(ZIN, numTot, 1)
+          #RAll = "equalvarcov" #TBD
+          RAll = getR(numCos)
           AAll = "equal"
           UAll = "zero"
           
@@ -476,7 +477,7 @@ lapply(SEList, write, "C:/Users/Katharina/Documents/Umich/RDSpend/test4.csv", ap
           #run models
             stringList = c()
             model.list = list(B=BAll, U=UAll, Q=QAll, Z=ZAll, A=AAll, R=RAll)
-            model.current = MARSS(oneVarInput, model = model.list, miss.value =NA, control = control.list)
+            model.current = MARSS(twoVarInput, model = model.list, miss.value =NA, control = control.list)
             if (is.null(model.current$num.params)){
               numParams = NA
               AICc = NA
@@ -486,7 +487,7 @@ lapply(SEList, write, "C:/Users/Katharina/Documents/Umich/RDSpend/test4.csv", ap
             } else{
               numParams = model.current$num.params
               AICc = model.current$AICc
-              curState = toString(model.current$states)
+              curStates = toString(model.current$states)
               curSE = toString(model.current$states.se)
               curConv = model.current$converge
               #plot
@@ -504,7 +505,7 @@ lapply(SEList, write, "C:/Users/Katharina/Documents/Umich/RDSpend/test4.csv", ap
                   myPlot=  myPlot+ eval(parse(text = addString))
                   j = j+5
                 }
-                ggsave(paste("C:/Users/Katharina/Documents/Umich/rdspend/firststage/firststageconfig6", industryName, ".pdf", sep = ""))
+                ggsave(paste("C:/Users/Katharina/Documents/Umich/rdspend/firststage/firststageconfig35", industryName, ".pdf", sep = ""))
             }
             if (is.null(model.current$logLik)){
               logLik = NA
@@ -521,14 +522,14 @@ lapply(SEList, write, "C:/Users/Katharina/Documents/Umich/RDSpend/test4.csv", ap
           model.current = NA
           curConv = NA
         }
-        cur.outdata =data.frame(industry= industryName, logLik = logLik, numParams = numParams, AICc = AICc, states = curState, ses = curSE, converge =curConv, stringsAsFactors = FALSE)
+        cur.outdata =data.frame(industry= industryName, logLik = logLik, numParams = numParams, AICc = AICc, states = curStates, ses = curSE, converge =curConv, stringsAsFactors = FALSE)
         colnames(cur.outdata)= colnames(output.data)
         output.data= rbind(output.data, cur.outdata)
         modelString = paste("model", industryName, sep = ".")
         stringList = c(stringList, modelString)
-        assign(paste("modelTwostepSSconfig6", industryName, sep = "."), model.current)
+        assign(paste("modelTwostepSSconfig35", industryName, sep = "."), model.current)
     }
-    save.image(file = "indIndexesconfig6.RData")
+    save.image(file = "indIndexesconfig35.RData")
     write.csv(output.data, file = "C:/Users/Katharina/Documents/Umich/RDSpend/test2.csv")
 
   #plot industry index files
@@ -651,12 +652,12 @@ colnames(output.data)= c("industry", "company", "logLik", "numParams", "AICc", "
             if (is.null(model.current$num.params)){
               numParams = NA
               AICc = NA
-              curState = NA
+              curStates = NA
               curSE = NA
             }else{
               numParams = model.current$num.params
               AICc = model.current$AICc
-              curState = toString(model.current$states)
+              curStates = toString(model.current$states)
               curSE = toString(model.current$states.se)
               plotData = data.frame(t(model.current$states))
               seData = t(model.current$states.se[,1])
@@ -682,12 +683,12 @@ colnames(output.data)= c("industry", "company", "logLik", "numParams", "AICc", "
             if (is.null(model.current$num.params)){
               numParams = NA
               AICc = NA
-              curState = NA
+              curStates = NA
               curSE = NA
             }else{
               numParams = model.current$num.params
               AICc = model.current$AICc
-              curState = toString(model.current$states)
+              curStates = toString(model.current$states)
               curSE = toString(model.current$states.se)
               plotData = data.frame(t(model.current$states))
               seData = t(model.current$states.se[,1])
@@ -710,11 +711,11 @@ colnames(output.data)= c("industry", "company", "logLik", "numParams", "AICc", "
             AICc=NA
             logLik = NA
             model.current = NA
-            curState = NA
+            curStates = NA
             curSE = NA
           }
         }
-        cur.outdata =data.frame(industry = industryName, company = companyName, logLik = logLik, numParams = numParams, AICc = AICc, state = curState, SEs = curSE, modtype = modtype, stringsAsFactors = FALSE)
+        cur.outdata =data.frame(industry = industryName, company = companyName, logLik = logLik, numParams = numParams, AICc = AICc, state = curStates, SEs = curSE, modtype = modtype, stringsAsFactors = FALSE)
         colnames(cur.outdata)= colnames(output.data)
         output.data= rbind(output.data, cur.outdata)
         assign(paste("model", industryName, companyName, sep = "."), model.current)   

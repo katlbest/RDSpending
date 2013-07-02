@@ -8,6 +8,7 @@ library(tseries)
 library(gridExtra)
 library(reshape2)
 library(MARSS)
+library(KFAS)
 
 #clear workspace ==============================================================
   rm(list = ls())
@@ -301,3 +302,35 @@ library(MARSS)
   write.csv(output.outofsample, file = "C:/Users/Katharina/Documents/Umich/RDSpend/test3.csv")
   all.out = output.outofsample
   save(all.out, file = "allCoOut.RData") #i = 330, j = 96/141
+
+#company level diagnostics=================================================================
+output.data = data.frame(matrix(ncol = 6, nrow = 0))
+colnames(output.data)= c("industryName", "companyName", "numTot", "numZero", "numNA", "yearsRun")
+
+for (i in 1:length(oneVarList)){ #industry loop 
+  curData = oneVarList[[i]]
+  industryName = nameVector[i] 
+  companyNameVector = rownames(curData)
+  for (j in 1:(nrow(curData))){#for each company, run model
+    #set up inputdata
+    companyName = companyNameVector[j]
+    coData = curData[j,]
+    numTot = length(coData)
+    numNA = length(coData[is.na(coData)])
+    noNA = na.exclude(coData)
+    numZero = length(noNA[noNA==0])
+    numYears = 0
+    if (length(coData[is.na(coData)])<length(coData)){
+      nonNA1 = which(!is.na(coData)) #coData now a vector
+      startIndex1 = min(nonNA1)
+      endIndex1 = max(nonNA1)
+      coData = coData[startIndex1:endIndex1]
+      numYears = length(coData)
+    }
+      #store
+    cur.outdata =data.frame(industry= industryName,company= companyName, numTot = numTot, numZero = numZero, numNA = numNA, numYears = numYears, stringsAsFactors = FALSE)
+    colnames(cur.outdata)= colnames(output.data)
+    output.data= rbind(output.data, cur.outdata)
+  }
+}
+write.csv(output.data, file = "C:/Users/Katharina/Documents/Umich/RDSpend/test2.csv")

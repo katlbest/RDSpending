@@ -37,6 +37,7 @@
     #RDDATA2 = merge(x = RDDATA2, y = AVGTABLE, by = "gvkey", all.x = TRUE)
     #RDDATA2$npatappZ = (RDDATA2$npatappAdj-meanNpa)/sdNpa
     #RDDATA2$xrdZ= RDDATA2$xrdAdj- meanXrdAdj/sdXrdAdj
+    #write.csv(RDDATA2,"C:/Users/Katharina/Documents/Umich/rdspend/test.csv") 
 
 #clean data=======================================================================
   #get clean dataset--only data with at least 8 entries

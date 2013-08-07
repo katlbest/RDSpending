@@ -13,7 +13,7 @@ library(car)
 library(mlogit)
 library(nnet)
 library(MASS)
-library(lme4)
+#library(lme4)
 
 #clear workspace ==============================================================
   rm(list = ls())
@@ -98,10 +98,16 @@ library(lme4)
       currenthold = current
       currenthold[currenthold == 0]= NA
       counters=apply(currenthold,1,function(x) sum(!is.na(x)))
-      redVarList[[k]]=current[counters >4,] #remove companies that don't have at least 4 non-zero, non-NA entries, CHANGE HERE
+      redVarList[[k]]=current[counters >6,] #remove companies that don't have at least 4 non-zero, non-NA entries, CHANGE HERE
       redVarList[[k]]= oneVarList[[k]]
       #print(dim(redVarList[[k]])[1]-dim(current)[1])
     } 
+
+#print usable companies
+#for (k in 1:length(oneVarList)){
+  
+  
+#}
 
 #run model=======================================================================================
   #note run this with at least 5 data points
@@ -110,7 +116,7 @@ library(lme4)
   output.outofsample = data.frame(matrix(ncol = 4, nrow = 0))
   colnames(output.outofsample) = c("industryName", "datayear", "state", "se")
   #missedList=c(3931,2590,3390,2520,2540,3221,3360,2531,3824,3570,3760,3942,3550,3567,3821,7384,2033,2111,2840,5160,3444,2833,2990,3562,9997,3561,3716,4822,5200,3452,3433,3442,3555,3844,7381,2013,2273,2851,2800,2820,3081,3678,2430,3630,3843,3270,3721,7320,7830,3523,3590,8734,5070,3290,5141,2000,3420,7380,3827,3851,5110,5051,5172,2060,2821,3569,3728,2040,5190,8090,2030,2400,2721,3711,5047,5080,8700,3580,3585,4700,2711,1382,7310,7371,2200,2870,3533,3944,8082,2860,3829,4412,1400,3861,2621,3949,3990,5065,7200,1389,3823,7359,3812,3640,8200,8742,3572,5122,3826,8071,2844,2750,5045,8731,8711,3825,3571,7374,2911,3312,7011,3089,3559,5411,3842,5961,4899,3841,4812,7990,7389,1040,9995,3845,5812,4813,7373,7370,7372,1044,1520,2084,2771,3281,3412,3911,4011,4013,4220,4222,4512,4513,5010,5050,5072,5082,5171,5180,5211,5271,5311,5331,5399,5531,5600,5621,5651,5944,5945,7340,7377,7997,8051,8111,8300,5661,5810,7350,7361,8062,8400,900,2790,4522,7000,7510,7996,8351,2732,3910,4100,5030,5731,8060,8900,2253,4213,4610,5000,5020,5712,5900,8050,2015,2044,4400,5064,5094,5130,5400,5735,8600,2085,2092,3211,5940,7822,5700,7819,5013,7829,8011,2421,5031,5099,5412,7841,8744,1540,3241,3451,5063,7331,8741,4210,5734,7311,8000,800,1531,2086,3873,2451,5090,7385,200,3430,2340,4581,4832,5093,5140,7948,1090,1731,7330,7500,2052,4731,7812,2300,2780,5912,1220,3720,1381,5150,7900,8093,2673,2741,5500,5960,2452,3960,3250,7600,3317,5990,8721,3751,2611,5084,2082,4833,1600,3822,5040,3950,3743,7363,2090,3790,3724,3480,4841,3730)
-  for (k in 1:length(redVarList)){
+  for (k in 13:length(redVarList)){
     oneVarInput = redVarList[[k]]
     numCos = nrow(oneVarInput)
     numYears = 1
@@ -178,7 +184,7 @@ library(lme4)
           AICc = NA
           curStates = NA
           curSE = NA
-          logLik = NA
+         logLik = NA
           model.current = NA
           curConv = NA
           stateVect = rep(NA,numYears)
@@ -258,7 +264,7 @@ library(lme4)
       for (j in 1:(nrow(curData))){#for each company, run model
         #set up inputdata
           companyName = companyNameVector[j]
-          if (companyName %in% missedList){
+          #if (companyName %in% missedList){
           coData = curData[j,]
           if (length(coData[is.na(coData)])<length(coData)){
             nonNA1 = which(!is.na(coData)) #coData now a vector
@@ -324,7 +330,7 @@ library(lme4)
           modelString = paste("CoEdit", industryName,companyName, sep = ".")
           stringList = c(stringList, modelString)
           assign(paste("CoEdit", industryName, sep = "."), model.current)
-          }
+          #}
       }
     }
   save.image(file = "CoEdit.RData")
@@ -471,7 +477,6 @@ for (i in 1:length(oneVarList)){ #industry loop
   }
 }
 write.csv(output.data, file = "C:/Users/Katharina/Documents/Umich/RDSpend/test2.csv")
-
 
 #outofsampletesting============================================================================
   #clear workspace

@@ -14,6 +14,8 @@
   library(mlogit)
   library(nnet)
   library(MASS)
+  library(lme4)
+  library(glm2)
 
 #clear workspace ===================================================================
   rm(list = ls())
@@ -336,20 +338,23 @@
 
 #regression analysis=====================================================================
   #get lhs variable (number of patents)
-    lhs.dat = read.csv("lhsdat.csv") 
+    #lhs.dat = read.csv("lhsdat.csv") 
   #aggregate dataset  
     companies.dat$id = paste(companies.dat$industryName, companies.dat$datayear, sep = "")
+    companies.dat$companyid = paste(companies.dat$companyName, companies.dat$datayear, sep = "")
     industries.dat$id = paste(industries.dat$industryName, industries.dat$datayear, sep = "")
     reg.dat = merge(x = companies.dat, y = industries.dat, by = "id", all.x = TRUE)
-    colnames(reg.dat) = c("id", "industryName", "companyName", "datayear", "state_co", "stError_co", "strictFlag_co", "drop", "drop2", "state_ind", "stError_ind", "strictFlag_ind", "onlyWorkingFlag")
-    reg.dat= reg.dat[,c(1:7, 10:13)]
+    colnames(reg.dat) = c("id", "industryName", "companyName", "datayear", "state_co", "stError_co", "strictFlag_co", "companyid", "drop", "drop2", "state_ind", "stError_ind", "strictFlag_ind", "onlyWorkingFlag")
+    reg.dat= reg.dat[,c(1:8, 11:14)]
     #reg.dat = merge(x = reg.dat, y = lhs.dat, by = "companyName", all.x = TRUE)
     #add lhs variable
-      lhs.dat$id = paste(lhs.dat$companyName, lhs.dat$dataYear, sep = "")
-      reg.dat$id = paste(reg.dat$companyName, reg.dat$dataYear, sep = "")
-      reg.dat = merge(x = reg.dat, y = lhs.dat, by = "id", all.x = TRUE)
-      reg.dat= reg.dat[,c(1:11,14)]
-      colnames(reg.dat) = c("id", "industryName", "companyName", "datayear", "state_co", "stError_co", "strictFlag_co", "state_ind", "stError_ind", "strictFlag_ind", "onlyWorkingFlag", "npatappAdj")
+      RDDATA$companyid = paste(RDDATA$gvkey, RDDATA$datayear, sep = "")
+      #keep only first entry with each company id
+        RDDATA = RDDATA[!duplicated(RDDATA[,c('companyid')]),]
+        #multiIDs= data.frame(freq(ordered(RDDATA$companyid), plot=FALSE))
+        #multiIDs = multiIDs[multiIDs$Frequence >1,]
+      reg.dat = merge(reg.dat, RDDATA, by = "companyid", all.x = TRUE) #problem arises here!
+      reg.dat.nodeletes = reg.dat
     #delete any entries where company or industry model was not estimated for these years
       reg.dat = reg.dat[!is.na(reg.dat$state_co) & !is.na(reg.dat$state_ind),]
     #delete missing LHS--in this reduced sample there are no missing LHS's
@@ -382,8 +387,88 @@
     curR2= 1-(curSSRes/curSSTot)
   #higher order terms
     ho.mod = lm(npatappAdj~state_co + I(state_co^2)+stError_co + state_ind +I(state_ind^2) + stError_ind, data = reg.dat)
-
-
-
+  #industry dummies
+    reg.dat$industryName = as.factor(reg.dat$industryName)
+      allInd.mod = lm(npatappAdj~industryName + state_co + stError_co + state_ind + stError_ind, data = reg.dat)
+  #random effects (different intercept for each industry (or company))
+    #random intercepts
+      allRE.mod = lmer(npatappAdj~state_co + stError_co +state_ind + stError_ind + (1|industryName), data = reg.dat)
+    #random intercepts and slopes
+      allRE2.mod = lmer(npatappAdj~state_co + stError_co +state_ind + stError_ind + (1+state_ind|industryName), data = reg.dat)
+    #see here for move info: http://www.bodowinter.com/tutorial/bw_LME_tutorial2.pdf
+  #logistic regression
+    #all data model
+      #set up categories
+        reg.dat$catNumPat = NA
+        reg.dat[reg.dat$npatappAdj==0,]$catNumPat= 0
+        percentile = quantile(reg.dat[reg.dat$npatappAdj >0,]$npatappAdj, c(.5))
+        reg.dat[reg.dat$npatappAdj>0 & reg.dat$npatappAdj < percentile,]$catNumPat= 1
+        reg.dat[reg.dat$npatappAdj >= percentile,]$catNumPat= 2
+      #using multinom
+        test <- multinom(catNumPat ~ state_co + stError_co + state_ind + stError_ind, data = reg.dat)
+        exp(coef(test))
+        #pvalues
+        summary.test = summary(test, Wald = TRUE)
+        pchisq(summary.test$Wald.ratios^2, df = 1, low = F)
+      #fit
+        mod = test
+        fitstat(mod)
+      #function for getting fit output for multinom
+        fitstat <- function(object) { 
+          #thanks Ripley, B. D. for telling how to get the LogLik and when is invalid. 
+        {if (!is.null(object$call$summ) && !identical(object$call$summ,0)) 
+          stop("when 'summ' argument is not zero,can NOT get Loglik") } 
+        object.base <- update(object,.~1,trace=FALSE) 
+        dev.base <- deviance(object.base) ; L.base <- - dev.base/2 
+        dev.full <- deviance(object) ; L.full <- - dev.full/2 
+        G2 <- dev.base - dev.full 
+        df <- object$edf - object.base$edf 
+        LR.test.p <- pchisq(G2,df,lower=F) 
+        
+        aic <- object$AIC 
+        
+        n<-dim(object$residuals)[1] 
+        
+        #get the predict value to cal count R2 
+        pre <- predict(object,type="class") 
+        y <- eval.parent(object$call$data)[,as.character(object$call$formula[[2]])] 
+        if (!identical(length(y),length(pre))) stop("Length not matched.") 
+        tab <- table(y,pre) 
+        if (!identical(dim(tab)[1],dim(tab)[2])) stop("pred and y have diff nlevels") 
+        ad <- max(rowSums(tab))#max of row sum 
   
-    
+        #cal R2 
+        ML.R2 <- 1-exp(-G2/n) 
+        McFadden.R2 <- 1-(L.full/L.base) 
+        McFadden.Adj.R2 <- 1-((L.full-mod$edf)/L.base) 
+        Cragg.Uhler.R2 <- ML.R2/(1-exp(2*L.base/n)) 
+        Count.R2 <- sum(diag(tab))/sum(tab) 
+        Count.adj.R2 <- (sum(diag(tab))-ad)/(sum(tab)-ad) 
+        
+        #get the result 
+        res<-list(LR=G2,df=df,LR.test.p =LR.test.p 
+                  ,aic=aic,ML.R2=ML.R2,Cragg.Uhler.R2=Cragg.Uhler.R2,McFadden.R2 
+                  =McFadden.R2 ,McFadden.Adj.R2=McFadden.Adj.R2,Count.R2=Count.R2,Count.adj.R2=Count.adj.R2) 
+        
+        #print the result 
+        cat("\n", 
+            paste(rep("-",21)), 
+            "\n The Fitstats are : \n", 
+            sprintf("G2(%d) = %f",df,G2), 
+            " ,Prob ",format.pval(LR.test.p), 
+            "\n",sprintf("AIC   = %f",aic), 
+            sprintf(",ML.R2 = %f \n",ML.R2), 
+            paste(rep("-",21)),"\n", 
+            sprintf("Cragg.Uhler.R2  = %f \n",Cragg.Uhler.R2), 
+            sprintf("McFadden.R2     = %f \n",McFadden.R2), 
+            sprintf("McFadden.Adj.R2 = %f \n",McFadden.Adj.R2), 
+            sprintf("Count.R2        = %f \n",Count.R2), 
+            sprintf("Count.adj.R2    = %f \n",Count.adj.R2), 
+            "\n Note:The maxinum of ML R2 is less than 1 \n", 
+            paste(rep("-",21)),"\n") 
+        invisible(res) 
+        } 
+
+#get raw R&D=========================================================================
+  all.noest.mod = lm(npatappAdj~xrdAdj, data = reg.dat)
+  rel.mod = lm(xrdAdj~state_co, data = reg.dat)

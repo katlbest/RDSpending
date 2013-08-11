@@ -472,3 +472,14 @@
 #get raw R&D=========================================================================
   all.noest.mod = lm(npatappAdj~xrdAdj, data = reg.dat)
   rel.mod = lm(xrdAdj~state_co, data = reg.dat)
+  #create aggregate plot
+    testdat = reg.dat[,c("companyName", "xrdAdj")]
+    testdat = na.exclude(testdat)
+    avgSpend = aggregate(testdat$xrdAdj, by = list(companyName = testdat$companyName), FUN = mean)
+    colnames(avgSpend)= c("companyName", "xrdAdj")
+    testdat = reg.dat[,c("companyName", "state_co")]
+    testdat = na.exclude(testdat)
+    avgSpend2 = aggregate(testdat$state_co, by = list(companyName = testdat$companyName), FUN = mean)
+    colnames(avgSpend2)= c("companyName", "state_co")
+    plot.dat = merge(x = avgSpend, y = avgSpend2, by = "companyName", all.x = TRUE)
+    plot(plot.dat$xrdAdj, plot.dat$state_co)

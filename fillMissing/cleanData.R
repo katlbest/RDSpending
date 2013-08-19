@@ -468,6 +468,7 @@
             paste(rep("-",21)),"\n") 
         invisible(res) 
         } 
+496,480,662
 
 #get raw R&D=========================================================================
   all.noest.mod = lm(npatappAdj~xrdAdj, data = reg.dat)
@@ -483,3 +484,21 @@
     colnames(avgSpend2)= c("companyName", "state_co")
     plot.dat = merge(x = avgSpend, y = avgSpend2, by = "companyName", all.x = TRUE)
     plot(plot.dat$xrdAdj, plot.dat$state_co)
+    plot.dat = plot.dat[496]
+
+    testdat = reg.dat[,c("companyName", "npatappAdj")]
+    testdat = na.exclude(testdat)
+    avgSpend2 = aggregate(testdat$npatappAdj, by = list(companyName = testdat$companyName), FUN = mean)
+    colnames(avgSpend2)= c("companyName", "npatappAdj")
+    plot.dat2 = merge(x = plot.dat, y = avgSpend2, by = "companyName", all.x = TRUE)
+    test = reg.dat[,c("companyName","industryName")]
+    plot.dat2 = merge(x = plot.dat2, y = test, by = "companyName", all.x = TRUE)
+    #remove duplicates
+      plot.dat2 = plot.dat2[!duplicated(plot.dat2[,c('companyName')]),]
+    test = lm(npatappAdj~xrdAdj, data = plot.dat2)
+    test = lm(npatappAdj~xrdAdj +factor(industryName), data = plot.dat2)
+    FREQTABLE = freq(ordered(RDDATA$sic), plot=FALSE) #many industries have over 100 entries
+    FREQTABLE = data.frame(industryName = as.factor(rownames(FREQTABLE)), freq = FREQTABLE[,1])
+    plot.dat3 = data.frame(merge(x = plot.dat2, y = FREQTABLE, by = "industryName", all.x = TRUE))
+    plot.dat3 = na.exclude(plot.dat3)
+    test = lm(npatappAdj~xrdAdj +factor(industryName), data = plot.dat3)

@@ -16,6 +16,7 @@
   library(MASS)
   library(lme4)
   library(glm2)
+  library(plm)
 
 #clear workspace ===================================================================
   rm(list = ls())
@@ -359,6 +360,9 @@
       reg.dat = reg.dat[!is.na(reg.dat$state_co) & !is.na(reg.dat$state_ind),]
     #delete missing LHS--in this reduced sample there are no missing LHS's
       reg.dat = reg.dat[!is.na(reg.dat$npatappAdj),]
+    #rename datayear
+      colnames(reg.dat)[5] = "datayear"
+
   #model
     all.mod = lm(npatappAdj~state_co + stError_co + state_ind + stError_ind, data = reg.dat)
   #diagnostic plots
@@ -502,3 +506,79 @@
     plot.dat3 = data.frame(merge(x = plot.dat2, y = FREQTABLE, by = "industryName", all.x = TRUE))
     plot.dat3 = na.exclude(plot.dat3)
     test = lm(npatappAdj~xrdAdj +factor(industryName), data = plot.dat3)
+
+  #get companies with 10 entries only
+    FREQTABLE = freq(ordered(companies.dat$company615Name), plot=FALSE) #many industries have over 100 entries
+    length(FREQTABLE[FREQTABLE[,1]>=10,][,1])
+    length(FREQTABLE[FREQTABLE[,1]>=15,][,1])
+    FREQTABLE = data.frame(companyName = as.factor(rownames(FREQTABLE)), freq = FREQTABLE[,1])
+    moreTen.dat = data.frame(merge(x = companies.dat, y = FREQTABLE, by = "companyName", all.x = TRUE))
+    moreTen.dat = moreTen.dat[moreTen.dat$freq >= 10,]
+    regTen.dat = merge(x = moreTen.dat, y = industries.dat, by = "id", all.x = TRUE)
+    colnames(regTen.dat) = c("id", "companyName", "industryName", "datayear", "state_co", "stError_co", "strictFlag_co", "companyid", "drop", "drop2","drop3", "state_ind", "stError_ind", "strictFlag_ind", "onlyWorkingFlag")
+    regTen.dat= regTen.dat[,c(1:8, 12:15)]
+    regTen.dat = merge(regTen.dat, RDDATA, by = "companyid", all.x = TRUE) #problem arises here!
+    regTen.dat.nodeletes = regTen.dat
+    #delete any entries where company or industry model was not estimated for these years
+      regTen.dat = regTen.dat[!is.na(regTen.dat$state_co) & !is.na(regTen.dat$state_ind),]
+    #delete missing LHS--in this reduced sample there are no missing LHS's
+      regTen.dat = regTen.dat[!is.na(regTen.dat$npatappAdj),]
+    #model
+      all.mod = lm(npatappAdj~state_co + stError_co + state_ind + stError_ind, data = regTen.dat)
+
+  #create panel data and test for lags
+    panel.dat <- pdata.frame(reg.dat, index = c("companyName", "datayear"), drop.index = TRUE, row.names = TRUE)
+    testdat = data.frame(rd = as.vector(panel.dat$xrdAdj), numPat = as.vector(panel.dat$npatappAdj))
+    testdat = na.exclude(testdat)
+    cor(x = testdat$rd, y = testdat$numPat, use = "complete.obs")
+    numLags = 5
+    laggedVars = lag(panel.dat$xrdAdj, 1:numLags)
+    for (i in 1:numLags){
+      testdat = data.frame(rd = as.vector(laggedVars[,i]), numPat = as.vector(panel.dat$npatappAdj))
+      testdat = na.exclude(testdat)
+      cor = cor(x = testdat$rd, y = testdat$numPat, use = "complete.obs")
+      print(paste(i, cor, sep = ","))
+    }
+
+  #create AR models
+  output.data = data.frame(matrix(ncol = 5, nrow = 0))
+  colnames(output.data)= c("industryName", "companyName", "coeff1", "coeff2", "intercept")
+  for (i in 1:length(oneVarList)){ #industry loop 
+    curData = oneVarList[[i]]
+    industryName = nameVector[i] 
+    companyNameVector = rownames(curData)
+      for (j in 1:(nrow(curData))){#for each company, run model
+        #set up inputdata
+        companyName = companyNameVector[j]
+        coData = curData[j,]
+        if (length(coData[is.na(coData)])<length(coData)){
+          nonNA1 = which(!is.na(coData)) #coData now a vector
+          startIndex1 = min(nonNA1)
+          endIndex1 = max(nonNA1)
+          coData = coData[startIndex1:endIndex1]
+          numYears = length(coData)
+          #run model
+            curMod = ar.ols(coData, AIC = TRUE, order.max = 2, intercept = TRUE, demean = FALSE, na.action = na.exclude)
+            if (is.na(curMod$ar[1])){
+              coeffs = c(NA, NA, NA)
+            }
+            else{
+              coeffs = curMod$ar[[1]] 
+              if(length(coeffs==1)){
+                coeffs = c(coeffs, NA)
+              }
+              int = curMod$x.intercept
+              coeffs = c(coeffs, int)
+            }
+        }
+        else{
+          coeffs = c(NA, NA, NA) 
+        }
+        cur.outdata =data.frame(industry= industryName,company= companyName, coeff1 = coeffs[1], coeff2 = coeffs[2], int = coeffs[3], stringsAsFactors = FALSE)
+        colnames(cur.outdata)= colnames(output.data)
+        output.data= rbind(output.data, cur.outdata)
+      }
+  }
+  write.csv(output.data, "arout.csv")
+
+  

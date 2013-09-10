@@ -272,6 +272,13 @@ rm(list = ls())
       noOuts= noOuts[noOuts$ssEst < 10,]
       plot(noOuts$ssEst, noOuts$arEst)
       dim(noOuts[noOuts$arEst==0,])
+  #check prediction of number of patents
+    ss.mod = lm(numPats~ssEst, data = pointListUse)
+    ar.mod = lm(numPats~arEst, data = pointListUse)
+    mean.mod = lm(numPats~meanEst, data = pointListUse)
+    cor(pointListUse$ssEst, pointListUse$numPats)
+    cor(pointListUse$arEst, pointListUse$numPats)
+    cor(pointListUse$meanEst, pointListUse$numPats)
 
 
 #add mean-based analysis and get the number of patents data, and add year to data====================================================================

@@ -507,19 +507,29 @@
     plot.dat3 = na.exclude(plot.dat3)
     test = lm(npatappAdj~xrdAdj +factor(industryName), data = plot.dat3)
 
-  #get companies with 10 entries only
-    FREQTABLE = freq(ordered(companies.dat$company615Name), plot=FALSE) #many industries have over 100 entries
+  #get companies with 15 entries only
+    FREQTABLE = freq(ordered(companies.dat$companyName), plot=FALSE) #many industries have over 100 entries
     length(FREQTABLE[FREQTABLE[,1]>=10,][,1])
     length(FREQTABLE[FREQTABLE[,1]>=15,][,1])
     FREQTABLE = data.frame(companyName = as.factor(rownames(FREQTABLE)), freq = FREQTABLE[,1])
-    moreTen.dat = data.frame(merge(x = companies.dat, y = FREQTABLE, by = "companyName", all.x = TRUE))
-    moreTen.dat = moreTen.dat[moreTen.dat$freq >= 10,]
-    regTen.dat = merge(x = moreTen.dat, y = industries.dat, by = "id", all.x = TRUE)
-    colnames(regTen.dat) = c("id", "companyName", "industryName", "datayear", "state_co", "stError_co", "strictFlag_co", "companyid", "drop", "drop2","drop3", "state_ind", "stError_ind", "strictFlag_ind", "onlyWorkingFlag")
-    regTen.dat= regTen.dat[,c(1:8, 12:15)]
-    regTen.dat = merge(regTen.dat, RDDATA, by = "companyid", all.x = TRUE) #problem arises here!
-    regTen.dat.nodeletes = regTen.dat
-    #delete any entries where company or industry model was not estimated for these years
+    moreFifteen.dat = data.frame(merge(x = companies.dat, y = FREQTABLE, by = "companyName", all.x = TRUE))
+    moreFifteen.dat = moreFifteen.dat[moreFifteen.dat$freq >= 10,]
+    regFifteen.dat = merge(x = moreFifteen.dat, y = industries.dat, by = "id", all.x = TRUE)
+    colnames(regFifteen.dat) = c("id", "companyName", "industryName", "datayear", "state_co", "stError_co", "strictFlag_co", "companyid", "drop", "drop2","drop3", "state_ind", "stError_ind", "strictFlag_ind", "onlyWorkingFlag")
+    regFifteen.dat= regFifteen.dat[,c(1:8, 12:15)]
+    regFifteen.dat = merge(regFifteen.dat, RDDATA, by = "companyid", all.x = TRUE) #problem arises here!
+    regFifteen.dat.nodeletes = regFifteen.dat
+
+    modelList = levels(as.factor(regFifteen.dat$companyName))
+    
+  #run AR models
+
+  #run state space models
+
+  #check success
+    
+
+  #delete any entries where company or industry model was not estimated for these years
       regTen.dat = regTen.dat[!is.na(regTen.dat$state_co) & !is.na(regTen.dat$state_ind),]
     #delete missing LHS--in this reduced sample there are no missing LHS's
       regTen.dat = regTen.dat[!is.na(regTen.dat$npatappAdj),]

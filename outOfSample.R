@@ -19,9 +19,9 @@ library(MASS)
   rm(list = ls())
 
 #data i/o=======================================================================
-  RDDATA = read.csv("C:/Users/Katharina/Documents/Umich/rdspend/RDDATA.csv") 
+  RDDATA = read.csv("RDDATA.csv") 
   #note: input file has been slightly modified by STATA and has date year and industry/year ID extracted
-  CONCATID = read.csv("C:/Users/Katharina/Documents/Umich/rdspend/concat.csv")
+  CONCATID = read.csv("concat.csv")
   RDDATA$iyID = CONCATID$iyID
   RDDATA$datadate = as.Date(RDDATA$datadate, "%d%b%Y")
   RDDATA$datayear = as.numeric(format(RDDATA$datadate, format = "%Y"))

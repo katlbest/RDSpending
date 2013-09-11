@@ -276,15 +276,18 @@ rm(list = ls())
     ss.mod = lm(numPats~ssEst, data = pointListUse)
     ar.mod = lm(numPats~arEst, data = pointListUse)
     mean.mod = lm(numPats~meanEst, data = pointListUse)
+    ma.mod = lm(numPats~maEst, data = pointListUse)
     cor(pointListUse$ssEst, pointListUse$numPats)
     cor(pointListUse$arEst, pointListUse$numPats)
     cor(pointListUse$meanEst, pointListUse$numPats)
+    temp = pointListUse[!(is.na(pointListUse$maEst)),]
+    cor(temp$maEst, temp$numPats)
 
 
 #add mean-based analysis and get the number of patents data, and add year to data====================================================================
   #setup
-    pointList = data.frame(matrix(ncol = 6, nrow = 0))
-    colnames(pointList) = c("industryName","companyName", "raw", "meanEst", "year", "numPatents")
+    pointList = data.frame(matrix(ncol = 7, nrow = 0))
+    colnames(pointList) = c("industryName","companyName", "raw", "meanEst", "year", "numPatents", "maEst")
     output.data.mean = data.frame(matrix(ncol = 3, nrow = 0))
     colnames(output.data.mean)= c("industryName", "companyName", "mean")
   #model
@@ -307,17 +310,31 @@ rm(list = ls())
             numYears = length(coData)
             if (numYears > 14 & length(coData)== length(na.exclude(coData))){ #we must have 15 non-NA points
               coDataUse = coData[1:10] #use first 10 points for model
-              curPointList = data.frame(matrix(ncol = 6, nrow = numYears))
-              colnames(curPointList) = c("industryName","companyName", "raw", "meanEst", "year", "numPatents")
+              curPointList = data.frame(matrix(ncol = 7, nrow = numYears))
+              colnames(curPointList) = c("industryName","companyName", "raw", "meanEst", "year", "numPatents", "maEst")
               curPointList$raw= coData
               curPointList$industryName = industryName
               curPointList$companyName = companyName
               curPointList$year = c(startYear:(startYear+numYears-1))
               curPointList$numPatents = coNum
               #run mean model and predict
-              curMod = mean(coDataUse)
-              preds = rep(curMod, numYears-11)
-              curPointList$meanEst[11:numYears] = curMod
+                curMod = mean(coDataUse)
+                preds = rep(curMod, numYears-11)
+                curPointList$meanEst[11:numYears] = curMod
+              #run MA(3) model and predict
+               # curMod = arma(coDataUse,order = c(0,2), include.intercept = TRUE)
+                if(length(coDataUse)==length(coDataUse[coDataUse==0])){
+                  coeffes = c(NA,NA,NA)
+                }
+              indat = data.frame(input = coData[1:10])
+                else{
+                  curModMA= arima(indat$input, order = c(0,0,2))  
+                  coeffs = curModMA$coef
+                }
+                #do prediction here
+                newindat = data.frame(input = coData)
+                preds = predict(curModMA,n.ahead = (numYears-10))
+                curPointList$maEst[11:numYears]= preds$pred
              #write outputs
               #mean model
               cur.outdata =data.frame(industry= industryName,company= companyName, mean = curMod, stringsAsFactors = FALSE)

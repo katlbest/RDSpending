@@ -139,8 +139,8 @@ rm(list = ls())
   UAll = "equal" 
   RAll = "diagonal and equal"
   ZAll = matrix(1,1,1)
-  pointList = data.frame(matrix(ncol = 5, nrow = 0))
-  colnames(pointList) = c("industryName","companyName", "raw", "arEst", "ssEst")
+  pointList = data.frame(matrix(ncol = 10, nrow = 0))
+  colnames(pointList) = c("industryName","companyName", "year", "raw", "numPats","arEst", "ssEst", "meanEst", "maEst", "isEst")
   output.data = data.frame(matrix(ncol = 4, nrow = 0))
   colnames(output.data)= c("industryName", "companyName", "coeff1",  "intercept")
   output.data.ss = data.frame(matrix(ncol = 8, nrow = 0))
@@ -148,24 +148,32 @@ rm(list = ls())
   control.list = list(safe = TRUE, trace =1, allow.degen= TRUE, maxit = 1000,conv.test.slope.tol=0.1)
 
 #run models with 10 points and project up to 15===============================================================
-  for (i in 1:length(oneVarList)){ #industry loop 
-    curData = oneVarList[[i]]
+  for (i in 1:length(twoVarList)){ #industry loop 
+    curData = twoVarList[[i]]
     industryName = nameVector[i] 
     companyNameVector = rownames(curData)
-    for (j in 1:(nrow(curData))){#for each company, run model
+    for (j in 1:(nrow(curData)/2)){#for each company, run model
       #set up inputdata
       companyName = companyNameVector[j]
       coData = curData[j,]
+      coNum = curData[j+nrow(curData)/2,]
       if (length(coData[is.na(coData)])<length(coData)){ #we have some non-NA entries
+        nonNA1 = which(!is.na(coData))
+        startIndex1 = min(nonNA1)
+        endIndex1 = max(nonNA1)
+        startYear = startYearList[[i]][1]-startIndex1 + 1
+        coNum = coNum[startIndex1:endIndex1]
         coData = na.trim(coData)
         numYears = length(coData)
         if (numYears > 14 & length(coData)== length(na.exclude(coData))){ #we must have 15 non-NA points
           coDataUse = coData[1:10] #use first 10 points for model
-          curPointList = data.frame(matrix(ncol = 5, nrow = numYears))
-          colnames(curPointList) = c("industryName","companyName", "raw", "arEst", "ssEst")
+          curPointList = data.frame(matrix(ncol =10, nrow = numYears))
+          colnames(curPointList) = c("industryName","companyName", "year", "raw","numPats", "arEst", "ssEst", "meanEst", "maEst", "isEst")
           curPointList$raw= coData
           curPointList$industryName = industryName
           curPointList$companyName = companyName
+          curPointList$year = c(startYear:(startYear+numYears-1))
+          curPointList$numPats = coNum
           #run model AR model
             curMod = ar.ols(coDataUse, AIC = FALSE, order.max = 1, intercept = TRUE, demean = FALSE, na.action = na.exclude)
             if (is.na(curMod$ar[1])){
@@ -177,8 +185,8 @@ rm(list = ls())
               coeffs = c(coeffs, int)
             }
             #do prediction here
-            preds = predict(curMod, newdata = coData[1:10],n.ahead = (numYears-10))
-            curPointList$arEst[11:numYears]= preds$pred
+              preds = predict(curMod, newdata = coData[1:10],n.ahead = (numYears-10))
+              curPointList$arEst[11:numYears]= preds$pred
           #run state space model
             model.list = list(B=BAll, U=UAll, Q=QAll, A=AAll, R=RAll,  Z=ZAll)
             model.current = MARSS(coDataUse, model = model.list, miss.value =NA, control = control.list)
@@ -209,6 +217,26 @@ rm(list = ls())
             }else{
               logLik = model.current$logLik
             }
+          #run mean model and predict
+            curMod = mean(coDataUse)
+            preds = rep(curMod, numYears-11)
+            curPointList$meanEst[11:numYears] = curMod
+          #run MA(3) model and predict
+            # curMod = arma(coDataUse,order = c(0,2), include.intercept = TRUE)
+              if(length(coDataUse)==length(coDataUse[coDataUse==0])){
+                coeffes = c(NA,NA,NA)
+              }
+              else{
+                curModMA= arima(coDataUse, order = c(0,0,2))  
+                coeffs = curModMA$coef
+              }
+            #do prediction here
+              predsMA = predict(curModMA,n.ahead = (numYears-10))
+              curPointList$maEst[11:numYears]= predsMA$pred
+          #do idiosyncratic error
+            stdev= sd(coDataUse)
+            predsIS = rnorm(n=numYears-10, m=curMod, sd=stdev) 
+            curPointList$isEst[11:numYears]= predsIS
           #write outputs
             #ar
               cur.outdata =data.frame(industry= industryName,company= companyName, coeff1 = coeffs[1], int = coeffs[2], stringsAsFactors = FALSE)
@@ -226,7 +254,7 @@ rm(list = ls())
     }
   }
   write.csv(output.data, "arout.csv")
-  write.csv(pointList, "pointList.csv")
+  write.csv(pointList, "pointList2.csv")
   write.csv(output.data.ss, "ssout.csv")
 
 #get results=============================================================================
@@ -277,17 +305,20 @@ rm(list = ls())
     ar.mod = lm(numPats~arEst, data = pointListUse)
     mean.mod = lm(numPats~meanEst, data = pointListUse)
     ma.mod = lm(numPats~maEst, data = pointListUse)
+    is.mod = lm(numPats~isEst, data = pointListUse)
     cor(pointListUse$ssEst, pointListUse$numPats)
     cor(pointListUse$arEst, pointListUse$numPats)
     cor(pointListUse$meanEst, pointListUse$numPats)
+    temp = pointListUse[!(is.na(pointListUse$isEst)),]
+    cor(temp$isEst, temp$numPats)
     temp = pointListUse[!(is.na(pointListUse$maEst)),]
     cor(temp$maEst, temp$numPats)
 
 
 #add mean-based analysis and get the number of patents data, and add year to data====================================================================
   #setup
-    pointList = data.frame(matrix(ncol = 7, nrow = 0))
-    colnames(pointList) = c("industryName","companyName", "raw", "meanEst", "year", "numPatents", "maEst")
+    pointList = data.frame(matrix(ncol = 8, nrow = 0))
+    colnames(pointList) = c("industryName","companyName", "raw", "meanEst", "year", "numPatents", "maEst", "isEst")
     output.data.mean = data.frame(matrix(ncol = 3, nrow = 0))
     colnames(output.data.mean)= c("industryName", "companyName", "mean")
   #model
@@ -310,8 +341,8 @@ rm(list = ls())
             numYears = length(coData)
             if (numYears > 14 & length(coData)== length(na.exclude(coData))){ #we must have 15 non-NA points
               coDataUse = coData[1:10] #use first 10 points for model
-              curPointList = data.frame(matrix(ncol = 7, nrow = numYears))
-              colnames(curPointList) = c("industryName","companyName", "raw", "meanEst", "year", "numPatents", "maEst")
+              curPointList = data.frame(matrix(ncol = 8, nrow = numYears))
+              colnames(curPointList) = c("industryName","companyName", "raw", "meanEst", "year", "numPatents", "maEst", "isEst")
               curPointList$raw= coData
               curPointList$industryName = industryName
               curPointList$companyName = companyName
@@ -326,15 +357,17 @@ rm(list = ls())
                 if(length(coDataUse)==length(coDataUse[coDataUse==0])){
                   coeffes = c(NA,NA,NA)
                 }
-              indat = data.frame(input = coData[1:10])
                 else{
-                  curModMA= arima(indat$input, order = c(0,0,2))  
+                  curModMA= arima(coDataUse, order = c(0,0,2))  
                   coeffs = curModMA$coef
                 }
                 #do prediction here
-                newindat = data.frame(input = coData)
-                preds = predict(curModMA,n.ahead = (numYears-10))
-                curPointList$maEst[11:numYears]= preds$pred
+                predsMA = predict(curModMA,n.ahead = (numYears-10))
+                curPointList$maEst[11:numYears]= predsMA$pred
+              #do idiosyncratic error
+                stdev= sd(coDataUse)
+                predsIS = rnorm(n=numYears-10, m=curMod, sd=stdev) 
+                curPointList$isEst[11:numYears]= predsIS
              #write outputs
               #mean model
               cur.outdata =data.frame(industry= industryName,company= companyName, mean = curMod, stringsAsFactors = FALSE)
@@ -347,8 +380,9 @@ rm(list = ls())
           }
         }
       }
+      pointListHold = pointList
       write.csv(output.data.mean, "meanout.csv")
-      write.csv(pointListRed, "pointList2.csv")
+      write.csv(pointList, "pointList3.csv")
       #reduce pointList2 to those with successful SS runs
-      pointListRed = pointList[pointList$companyName %in% usableNames,]
+      pointListRed = pointListHold[pointListHold$companyName %in% usableNames,]
 

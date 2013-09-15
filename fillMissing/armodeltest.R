@@ -13,6 +13,7 @@
   library(mlogit)
   library(nnet)
   library(MASS)
+  library(forecast)
   #library(lme4)
 
 #clear workspace ==============================================================
@@ -156,18 +157,27 @@
           curPointList$year = c(startYear:(startYear+numYears-1))
           curPointList$numPats = coNum
           #run model AR model
-            curMod = ar.ols(coDataUse, AIC = FALSE, order.max = 1, intercept = TRUE, demean = FALSE, na.action = na.exclude)
-            if (is.na(curMod$ar[1])){
-              coeffs = c(NA, NA, NA)
+            curMod = NA
+            preds = NA
+            if(length(coDataUse)==length(coDataUse[coDataUse==0])){
+              coeffs = c(NA,NA,NA)
             }
             else{
-              coeffs = curMod$ar[[1]] 
-              int = curMod$x.intercept
-              coeffs = c(coeffs, int)
+              curMod <- tryCatch(
+                Arima(coDataUse, order = c(1,0,0)),
+                warning = function(w) {
+                  return(NA)
+                }, error = function(e) {
+                  print(e)
+                  return(NA)
+                }
+              )
+            }            
+            if(!(is.na(curMod[1]))){
+              coeffs = curMod$coef
+              preds = as.vector(predict(curMod,n.ahead=numYears-11+1)$pred)
+              curPointList$arEst[11:numYears]= preds
             }
-            #do prediction here
-              preds = predict(curMod, newdata = coData[1:10],n.ahead = (numYears-10))
-              curPointList$arEst[11:numYears]= preds$pred
           #run state space model
             model.list = list(B=BAll, U=UAll, Q=QAll, A=AAll, R=RAll,  Z=ZAll)
             model.current = MARSS(coDataUse, model = model.list, miss.value =NA, control = control.list)
@@ -189,7 +199,7 @@
               curStates = toString(model.current$states)
               curSE = toString(model.current$states.se)
               curConv = model.current$converge
-              #predict and store
+              predict and store
                 sim.data=MARSSsimulate(model.current, nsim=1, tSteps=(numYears-10))
                 curPointList$ssEst[11:numYears] = sim.data$sim.data
             }
@@ -199,15 +209,13 @@
               logLik = model.current$logLik
             }
           #run mean model and predict
-            curMod = mean(coDataUse)
-            preds = rep(curMod, numYears-11)
-            curPointList$meanEst[11:numYears] = curMod
+            curModMean = mean(coDataUse)
+            preds = rep(curModMean, numYears-11)
+            curPointList$meanEst[11:numYears] = curModMean
           #run MA(2) model and predict
-            # curMod = arma(coDataUse,order = c(0,2), include.intercept = TRUE)
               if(length(coDataUse)==length(coDataUse[coDataUse==0])){
                 coeffes = c(NA,NA,NA)
-              }
-              else{
+              }else{
                 curModMA= arima(coDataUse, order = c(0,0,2))  
                 coeffs = curModMA$coef
               }
@@ -216,19 +224,30 @@
               curPointList$maEst[11:numYears]= predsMA$pred
           #do idiosyncratic error
             stdev= sd(coDataUse)
-            predsIS = rnorm(n=numYears-10, m=curMod, sd=stdev) 
+            predsIS = rnorm(n=numYears-10, m=curModMean, sd=stdev) 
             curPointList$isEst[11:numYears]= predsIS
           #run arma model
-            #if(length(coDataUse)==length(coDataUse[coDataUse==0])){
-            #  coeffs = c(NA,NA,NA,NA)
-            #}
-            #else{
-            #  curModARMA= arima(coDataUse, order = c(1,0,2))  
-            #  coeffs = curModARMA$coef
-          #}
-          #do prediction here
-            #predsARMA = predict(curModARMA,n.ahead = (numYears-10))
-            #curPointList$armaEst[11:numYears]= predsARMA$pred
+            curModARMA = NA
+            preds = NA
+            if(length(coDataUse)==length(coDataUse[coDataUse==0])){
+              coeffs = c(NA,NA,NA)
+            }
+            else{
+              curModARMA <- tryCatch(
+                Arima(coDataUse, order = c(1,0,2)),
+                warning = function(w) {
+                  return(NA)
+                }, error = function(e) {
+                  print(e)
+                  return(NA)
+                }
+              )
+            }            
+            if(!(is.na(curModARMA[1]))){
+              coeffs = curModARMA$coef
+              preds = as.vector(predict(curModARMA,n.ahead=numYears-11+1)$pred) 
+              curPointList$armaEst[11:numYears]= preds 
+            }
           #write outputs
             #ar
               cur.outdata =data.frame(industry= industryName,company= companyName, coeff1 = coeffs[1], int = coeffs[2], stringsAsFactors = FALSE)
@@ -261,6 +280,7 @@
     successMean = pointList[!is.na(pointList$meanEst),]
     successMA = pointList[!is.na(pointList$maEst),]
     successIS = pointList[!is.na(pointList$isEst),]
+    successARMA = pointList[!is.na(pointList$armaEst),]
   #select only companies where state space model runs
     #successCos = levels(as.factor(successSS$companyName))
     #pointListUse = pointList[pointList$companyName %in% successCos,]
@@ -315,6 +335,15 @@
       errors_IS = errors_IS[!(errors_IS$companyName %in% c(1585,24922,11768,24473,25302,27747,29245,20245,27727,23605,12227,12274,13794)),]
       mean(errors_IS$mseIS)
       sd(errors_IS$mseIS)
+    #arma model
+      successARMA$seARMA = (successARMA$armaEst-successARMA$raw)^2
+      errors_ARMA = data.frame(companyName = aggregate(successARMA$seARMA, list(gp=successARMA$companyName), sum)$gp,
+        mseARMA = aggregate(successARMA$seARMA, list(gp=successARMA$companyName), mean)$x)
+      mean(errors_ARMA$mseARMA)
+      sd(errors_ARMA$mseARMA)
+      errors_ARMA = errors_ARMA[!(errors_ARMA$companyName %in% c(1585,24922,11768,24473,25302,27747,29245,20245,27727,23605,12227,12274,13794)),]
+      mean(errors_ARMA$mseARMA)
+      sd(errors_ARMA$mseARMA)
   #test differences between AR and state space results
     #t-test difference of means
       t.test(pointListUse$arEst, pointListUse$ssEst, paired = TRUE)
@@ -333,8 +362,240 @@
     mean.mod = lm(numPatents~meanEst, data = successMean)
     ma.mod = lm(numPatents~maEst, data = successMA)
     is.mod = lm(numPatents~isEst, data = successIS)
+    arma.mod = lm(numPatents~armaEst, data = successARMA)
     cor(successAR$arEst, successAR$numPatents)
     cor(successSS$ssEst, successSS$numPatents)
     cor(successMean$meanEst, successMean$numPatents)
     cor(successMA$maEst, successMA$numPatents)
     cor(successIS$isEst, successIS$numPatents)
+    cor(successARMA$armaEst, successARMA$numPatents)
+
+#model setup--using all data points================================================================================
+  BAll = "identity"
+  QAll= "diagonal and unequal" #note this could be changed if it causes problems since the unequal portion is irrelevant (it is a 1 by 1 matrix)
+  AAll = "equal" #company inputs are allowed to have trends
+  UAll = "equal" 
+  RAll = "diagonal and equal"
+  ZAll = matrix(1,1,1)
+  pointList = data.frame(matrix(ncol = 11, nrow = 0))
+  colnames(pointList) = c("industryName","companyName", "year", "raw", "numPats","arEst", "ssEst", "meanEst", "maEst", "isEst", "armaEst")
+  output.data = data.frame(matrix(ncol = 4, nrow = 0))
+  colnames(output.data)= c("industryName", "companyName", "coeff1",  "intercept")
+  output.data.ss = data.frame(matrix(ncol = 8, nrow = 0))
+  colnames(output.data.ss)= c("industryName", "companyName", "logLik", "numParams", "AICc", "States", "SEs", "converge")
+  control.list = list(safe = TRUE, trace =1, allow.degen= TRUE, maxit = 1000,conv.test.slope.tol=0.1)
+
+#run models with all points and get estimates===============================================================
+for (i in 1:length(twoVarList)){ #industry loop 
+  curData = twoVarList[[i]]
+  industryName = nameVector[i] 
+  companyNameVector = rownames(curData)
+  for (j in 1:(nrow(curData)/2)){#for each company, run model
+    #set up inputdata
+    companyName = companyNameVector[j]
+    coData = curData[j,]
+    coNum = curData[j+nrow(curData)/2,]
+    if (length(coData[is.na(coData)])<length(coData)){ #we have some non-NA entries
+      nonNA1 = which(!is.na(coData))
+      startIndex1 = min(nonNA1)
+      endIndex1 = max(nonNA1)
+      startYear = startYearList[[i]][1]-startIndex1 + 1
+      coNum = coNum[startIndex1:endIndex1]
+      coData = na.trim(coData)
+      numYears = length(coData)
+      if (numYears > 14 & length(coData)== length(na.exclude(coData))){ #we must have 15 non-NA points
+        coDataUse = coData
+        curPointList = data.frame(matrix(ncol =11, nrow = numYears))
+        colnames(curPointList) = c("industryName","companyName", "year", "raw","numPats", "arEst", "ssEst", "meanEst", "maEst", "isEst", "armaEst")
+        curPointList$raw= coData
+        curPointList$industryName = industryName
+        curPointList$companyName = companyName
+        curPointList$year = c(startYear:(startYear+numYears-1))
+        curPointList$numPats = coNum
+        #run model AR model
+          curMod = NA
+          fitteds = NA
+          if(length(coDataUse)==length(coDataUse[coDataUse==0])){
+            coeffs = c(NA,NA,NA)
+          }
+          else{
+              curMod <- tryCatch(
+                Arima(coDataUse, order = c(1,0,0)),
+                warning = function(w) {
+                  return(NA)
+                }, error = function(e) {
+                  print(e)
+                  return(NA)
+                }
+              )
+          }            
+        if(!(is.na(curMod[1]))){
+          coeffs = curMod$coef
+          fitteds = as.vector(fitted(curMod))
+          curPointList$arEst= fitteds
+        }
+        #run state space model
+          model.current = NA
+          model.list = list(B=BAll, U=UAll, Q=QAll, A=AAll, R=RAll,  Z=ZAll)
+          model.current = MARSS(coDataUse, model = model.list, miss.value =NA, control = control.list)
+        #store output
+          if (is.null(model.current$num.params)){
+            print("failone")
+            numParams = NA
+            AICc = NA
+            curStates = NA
+            curSE = NA
+            curConv = NA
+            stateVect = rep(NA, numYears)
+            seVect = rep(NA, numYears)
+          } else{
+            numParams = model.current$num.params
+            AICc = model.current$AICc
+            stateVect = model.current$states[1,]
+            seVect = model.current$states.se[1,]
+            curStates = toString(model.current$states)
+            curSE = toString(model.current$states.se)
+            curConv = model.current$converge
+            #predict and store
+            curPointList$ssEst = as.vector(model.current$states)
+          }
+          if (is.null(model.current$logLik)){
+            logLik = NA
+          }else{
+            logLik = model.current$logLik
+          }
+        #run mean model and predict
+          curModMean = NA
+          curModMean = mean(coDataUse)
+          preds = rep(curModMean, numYears)
+          curPointList$meanEst= preds
+        #run MA(2) model and predict
+          # curMod = arma(coDataUse,order = c(0,2), include.intercept = TRUE)
+          curModMA = NA
+          if(length(coDataUse)==length(coDataUse[coDataUse==0])){
+            coeffs = c(NA,NA,NA)
+          }
+          else{
+            curModMA= Arima(coDataUse, order = c(0,0,2))  
+            coeffs = curModMA$coef
+            #predict
+            curPointList$maEst= as.vector(fitted(curModMA))
+          }
+        #do idiosyncratic error
+          stdev= sd(coDataUse)
+          predsIS = rnorm(n=numYears, m=curModMean, sd=stdev) 
+          curPointList$isEst= predsIS
+        #run arma model
+          curModARMA = NA
+          fitteds = NA
+          if(length(coDataUse)==length(coDataUse[coDataUse==0])){
+            coeffs = c(NA,NA,NA)
+          }
+          else{
+            curModARMA <- tryCatch(
+              Arima(coDataUse, order = c(1,0,2)),
+              warning = function(w) {
+                return(NA)
+              }, error = function(e) {
+                print(e)
+                return(NA)
+              }
+            )
+          }   
+          if(!(is.na(curModARMA[1]))){
+            coeffs = curModARMA$coef
+            fitteds = as.vector(fitted(curModARMA))
+            curPointList$armaEst= fitteds
+          }
+        #write outputs
+        #ar
+        cur.outdata =data.frame(industry= industryName,company= companyName, coeff1 = coeffs[1], int = coeffs[2], stringsAsFactors = FALSE)
+        colnames(cur.outdata)= colnames(output.data)
+        output.data= rbind(output.data, cur.outdata)
+        #ss
+        cur.outdata =data.frame(industry= industryName,company= companyName, logLik = logLik, numParams = numParams, AICc = AICc, states = curStates, ses = curSE, converge =curConv, stringsAsFactors = FALSE)
+        colnames(cur.outdata)= colnames(output.data.ss)
+        output.data.ss= rbind(output.data.ss, cur.outdata)
+        #points
+        colnames(curPointList)= colnames(pointList)
+        pointList = rbind(pointList, curPointList)
+      }
+    }
+  }
+}
+write.csv(output.data, "arout.csv")
+write.csv(pointList, "pointList2.csv")
+write.csv(output.data.ss, "ssout.csv")
+
+
+#get results=============================================================================
+  pointListAllPoints = read.csv("inputs/pointListAllPoints.csv")
+  successAR = pointListAllPoints[!is.na(pointListAllPoints$arEst),]
+  length(levels(as.factor(successAR$companyName)))
+  successSS = pointListAllPoints[!is.na(pointListAllPoints$ssEst),]
+  length(levels(as.factor(successSS$companyName)))
+  successMean = pointListAllPoints[!is.na(pointListAllPoints$meanEst),]
+  successMA = pointListAllPoints[!is.na(pointListAllPoints$maEst),]
+  successIS = pointListAllPoints[!is.na(pointListAllPoints$isEst),]
+  successARMA = pointListAllPoints[!is.na(pointListAllPoints$armaEst),]
+
+  ar.mod = lm(numPatents~arEst, data = successAR)    
+  ss.mod = lm(numPatents~ssEst, data = successSS)
+  mean.mod = lm(numPatents~meanEst, data = successMean)
+  ma.mod = lm(numPatents~maEst, data = successMA)
+  is.mod = lm(numPatents~isEst, data = successIS)
+  arma.mod = lm(numPatents~armaEst, data = successARMA)
+  cor(successAR$arEst, successAR$numPatents)
+  cor(successSS$ssEst, successSS$numPatents)
+  cor(successMean$meanEst, successMean$numPatents)
+  cor(successMA$maEst, successMA$numPatents)
+  cor(successIS$isEst, successIS$numPatents)
+  cor(successARMA$armaEst, successARMA$numPatents)
+
+#does 4-lag sum predict number of patents================================================
+  pointList = data.frame(matrix(ncol = 6, nrow = 0))
+  colnames(pointList) = c("industryName","companyName", "year", "raw", "numPats","fourpointEst")
+  for (i in 1:length(twoVarList)){ #industry loop 
+    curData = twoVarList[[i]]
+    industryName = nameVector[i] 
+    companyNameVector = rownames(curData)
+    for (j in 1:(nrow(curData)/2)){#for each company, run model
+      #set up inputdata
+      companyName = companyNameVector[j]
+      coData = curData[j,]
+      coNum = curData[j+nrow(curData)/2,]
+      if (length(coData[is.na(coData)])<length(coData)){ #we have some non-NA entries
+        nonNA1 = which(!is.na(coData))
+        startIndex1 = min(nonNA1)
+        endIndex1 = max(nonNA1)
+        startYear = startYearList[[i]][1]-startIndex1 + 1
+        coNum = coNum[startIndex1:endIndex1]
+        coData = na.trim(coData)
+        numYears = length(coData)
+        if (numYears > 14 & length(coData)== length(na.exclude(coData))){ #we must have 15 non-NA points
+          coDataUse = coData
+          curPointList = data.frame(matrix(ncol =6, nrow = numYears))
+          colnames(curPointList) = c("industryName","companyName", "year", "raw","numPats", "fourpointEst")
+          curPointList$raw= coData
+          curPointList$industryName = industryName
+          curPointList$companyName = companyName
+          curPointList$year = c(startYear:(startYear+numYears-1))
+          curPointList$numPats = coNum
+          #run my model
+            meanVect = c()
+           for (j in 4:length(coDataUse)){
+             meanVect = c(meanVect, mean(coDataUse[j], coDataUse[j-1], coDataUse[j-2], coDataUse[j-3]))
+           }
+          curPointList$fourpointEst[4:numYears]= meanVect
+          #points
+          colnames(curPointList)= colnames(pointList)
+          pointList = rbind(pointList, curPointList)
+        }
+      }
+    }
+  }
+  fourPointSuccess = pointList[!(is.na(pointList$fourpointEst)),]
+  four.mod = lm(numPats~fourpointEst, data = fourPointSuccess)
+  cor(fourPointSuccess$fourpointEst, fourPointSuccess$numPats)
+
+  

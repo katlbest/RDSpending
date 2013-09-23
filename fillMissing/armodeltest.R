@@ -25,8 +25,39 @@
   CONCATID = read.csv("concat.csv")
   RDDATA$iyID = CONCATID$iyID
   RDDATA$datadate = as.Date(RDDATA$datadate, "%d%b%Y")
+  #RDDATA$datadate = as.Date(RDDATA$datadate2, "%Y%m%d")
   RDDATA$datayear = as.numeric(format(RDDATA$datadate, format = "%Y"))
   RDDATA$npatappAdj = RDDATA$npatapp/RDDATA$sale
+
+#merge in revenue data=====================================================
+  #test revenue data
+    companyList = levels(as.factor(RDDATA$gvkey))
+    testDF = data.frame(company = companyList)
+    #NAAnnual = read.csv("inputs/naannual.csv")
+    #NAAnnualMonthly = read.csv("inputs/naannualmonthly.csv")
+    REVdat = read.csv("revenuevals.csv")
+    #companyListNA = levels(as.factor(NAAnnual$SIC))
+    #companyListNAM = levels(as.factor(NAAnnualMonthly$SIC))
+    companyListREV = levels(as.factor(REVdat$gvkey))
+    testDF$REV = 0
+    #testDF$NAM = 0
+    #testDF$NAA = 0
+    for (i in 1:nrow(testDF)){
+      #if(testDF$company[i] %in% companyListNA){
+      #  testDF$NAA[i]=1
+      #}
+      #if(testDF$company[i] %in% companyListNAM){
+      #  testDF$NAM[i]=1
+      #}
+      if(testDF$company[i] %in% companyListREV){
+        testDF$REV[i]=1
+      }
+    }
+  REVdat$compID = paste(REVdat$gvkey,REVdat$fyear, sep = "")
+  RDDATA$compID = paste(RDDATA$gvkey,RDDATA$datayear, sep = "")
+  REVdat = REVdat[,c("compID", "REVT", "XAD")]
+  RDDATA = merge(x = RDDATA, y = REVdat, by = "compID", all.x = TRUE)
+  write.csv(RDDATA, "RDwithRevenue.csv")
 
 #create raw indexes=======================================================================
   #pull raw R&D index and patent index
@@ -63,6 +94,11 @@
     RDANDNUM = data.frame(gvkey = RDDATA$gvkey, npatappAdj = RDDATA$npatappAdj, xrdAdj = RDDATA$xrdAdj, datadate = RDDATA$datadate,sic = RDDATA$sic, datayear = RDDATA$datayear)
     RDANDNUM = RDANDNUM[order(RDANDNUM$gvkey),]
     RDANDNUM = RDANDNUM[!(is.na(RDANDNUM$xrdAdj)),]
+
+  #set up RD and num patents data with revenue
+    RDANDNUMREV = data.frame(gvkey = RDDATA$gvkey, npatappAdj = RDDATA$npatappAdj, xrdAdj = RDDATA$xrdAdj, datadate = RDDATA$datadate,sic = RDDATA$sic, datayear = RDDATA$datayear, rev = RDDATA$REV)
+    RDANDNUMREV = RDANDNUMREV[order(RDANDNUMREV$gvkey),]
+    RDANDNUMREV = RDANDNUMREV[!(is.na(RDANDNUMREV$xrdAdj)),]
 
   #create input lists by industry 
     indList = levels(factor(RDANDNUM$sic))
@@ -113,6 +149,135 @@
       numCosList[[i]] = numCos
       twoVarList[[i]]= model.data2
     }
+
+#do the same as above but include revenue
+  #create input lists by industry 
+  indList = levels(factor(RDANDNUMREV$sic))
+  dataList = list()
+  nameVector = c()
+  for (i in 1:length(indList)){
+    #curData = RDONLY[RDONLY$sic ==indList[i],]
+    curData = RDANDNUMREV[RDANDNUMREV$sic == indList[i],]
+    dataList[[length(dataList)+1]]= curData
+    nameVector[[length(nameVector)+1]]= indList[i]
+    #}
+  }
+  
+  #clean inputs for each industry
+  oneVarList = list()
+  twoVarList = list()
+  threeVarList = list()
+  numCosList = list()
+  startYearList = list()
+  for (i in 1:length(nameVector)){
+    curData = dataList[[i]]
+    curDataOneVar = ddply(curData, ~datayear, 
+                          function(df) {
+                            res = data.frame(rbind(df$xrdAdj)) #take R&D spending as a percentage of sales
+                            names(res) = sprintf("%s",df$gvkey)
+                            res
+                          }
+    )
+    curDataTwoVar = ddply(curData, ~datayear, 
+                          function(df) {
+                            res = data.frame(rbind(df$npatappAdj))
+                            names(res) = sprintf("%s",df$gvkey)
+                            res
+                          }
+    )
+    curDataThreeVar = ddply(curData, ~datayear, 
+                          function(df) {
+                            res = data.frame(rbind(df$rev))
+                            names(res) = sprintf("%s",df$gvkey)
+                            res
+                          }
+    )
+    numCos = ncol(curDataOneVar)-1
+    model.data = curDataOneVar[-c(1)] #delete time entry
+    model.data2 =curDataTwoVar[-c(1)]
+    model.data3 =curDataThreeVar[-c(1)]
+    model.data = as.matrix(model.data)
+    model.data2 = as.matrix(model.data2)
+    model.data3 = as.matrix(model.data3)
+    model.data = t(model.data)
+    model.data2 = t(model.data2)
+    model.data3 = t(model.data3)
+    model.data2 = rbind(model.data, model.data2)
+    model.data3 = rbind(model.data2, model.data3)
+    oneVarList[[i]]= model.data
+    twoVarList[[i]]= model.data2
+    threeVarList[[i]]= model.data3
+    numCosList[[i]] = numCos
+    startYearList[[i]]= min(curDataOneVar$datayear)
+  }
+  #revenue analysis--using only companies with 15 data points
+    pointList = data.frame(matrix(ncol = 7, nrow = 0))
+    colnames(pointList) =c("industryName","companyName", "year", "raw","numPats","rawRev", "revEst")
+    for (i in 1:length(threeVarList)){ #industry loop 
+      curData = threeVarList[[i]]
+      industryName = nameVector[i] 
+      companyNameVector = rownames(curData)
+      for (j in 1:(nrow(curData)/3)){#for each company, run model
+        #set up inputdata
+        companyName = companyNameVector[j]
+        coData = curData[j,]
+        coNum = curData[j+nrow(curData)/3,]
+        coRev = curData[j+(nrow(curData)/3)*2,]
+        if (length(coData[is.na(coData)])<length(coData)){ #we have some non-NA entries
+          nonNA1 = which(!is.na(coData))
+          startIndex1 = min(nonNA1)
+          endIndex1 = max(nonNA1)
+          startYear = startYearList[[i]][1]-startIndex1 + 1
+          coNum = coNum[startIndex1:endIndex1]
+          coRev= coRev[startIndex1:endIndex1]
+          coData = na.trim(coData)
+          numYears = length(coData)
+          if (numYears > 14 & length(coData)== length(na.exclude(coData))){ #we must have 15 non-NA points
+            coDataUse = coData[1:10] #use first 10 points for model
+            revUse = coRev[1:10]
+            numUse = coNum[1:10]
+            curPointList = data.frame(matrix(ncol =7, nrow = numYears))
+            colnames(curPointList) = c("industryName","companyName", "year", "raw","numPats","rawRev", "revEst")
+            curPointList$raw= coData
+            curPointList$rawRev= coRev
+            curPointList$industryName = industryName
+            curPointList$companyName = companyName
+            curPointList$year = c(startYear:(startYear+numYears-1))
+            curPointList$numPats = coNum
+            #run revenue prediction
+              curMod = NA
+              preds = NA
+              mydat = data.frame(rev=revUse, numPats = numUse, raw= coDataUse)
+              mydat = na.exclude(mydat)
+              if(nrow(mydat)>3){
+                countZeroRD = length(mydat[mydat$raw==0,]$raw)
+                countZeroPats = length(mydat[mydat$numPats==0,]$numPats)
+                if(countZeroRD < nrow(mydat) & countZeroPats < nrow(mydat)){ #inputs are not al zero
+                  curMod = lm(rev~numPats+raw, data = mydat)  
+                  preddat = data.frame(numPats = coNum[11:numYears], raw = coData[11:numYears])
+                  preds = predict(curMod,preddat)
+                  curPointList$revEst[11:numYears]= preds
+                }
+              }
+              colnames(curPointList)= colnames(pointList)
+              pointList = rbind(pointList, curPointList)
+            }
+          }
+        }
+      }
+    write.csv(pointList, "revenueout.csv")
+    #check success
+      length(levels(as.factor(pointList$companyName)))
+      successREV = pointList[!is.na(pointList$revEst),]
+      successREV = successREV[!is.na(successREV$rawRev),]
+      MseRev = sum((successREV$revEst-successREV$rawRev)^2)
+    #determine error, by company
+      successREV$seREV = (successREV$revEst-successREV$rawRev)^2
+      errors_REV = data.frame(companyName = aggregate(successREV$seREV, list(gp=successREV$companyName), sum)$gp,
+                       mseREV = aggregate(successREV$seREV, list(gp=successREV$companyName), mean)$x)
+      mean(errors_REV$mseREV)
+      sd(errors_REV$mseREV)
+
 
 #model setup================================================================================
   BAll = "identity"

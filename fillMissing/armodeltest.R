@@ -150,7 +150,7 @@
       twoVarList[[i]]= model.data2
     }
 
-#do the same as above but include revenue
+#do the same as above but include revenue--sTART
   #create input lists by industry 
   indList = levels(factor(RDANDNUMREV$sic))
   dataList = list()
@@ -211,8 +211,8 @@
     startYearList[[i]]= min(curDataOneVar$datayear)
   }
   #revenue analysis--using only companies with 15 data points
-    pointList = data.frame(matrix(ncol = 7, nrow = 0))
-    colnames(pointList) =c("industryName","companyName", "year", "raw","numPats","rawRev", "revEst")
+    pointList = data.frame(matrix(ncol = 8, nrow = 0))
+    colnames(pointList) =c("industryName","companyName", "year", "raw","numPats","rawRev", "revEst", "revGrow")
     for (i in 1:length(threeVarList)){ #industry loop 
       curData = threeVarList[[i]]
       industryName = nameVector[i] 
@@ -232,18 +232,24 @@
           coRev= coRev[startIndex1:endIndex1]
           coData = na.trim(coData)
           numYears = length(coData)
+          revGrow = coRev
           if (numYears > 14 & length(coData)== length(na.exclude(coData))){ #we must have 15 non-NA points
             coDataUse = coData[1:10] #use first 10 points for model
             revUse = coRev[1:10]
             numUse = coNum[1:10]
-            curPointList = data.frame(matrix(ncol =7, nrow = numYears))
-            colnames(curPointList) = c("industryName","companyName", "year", "raw","numPats","rawRev", "revEst")
+            curPointList = data.frame(matrix(ncol =8, nrow = numYears))
+            colnames(curPointList) = c("industryName","companyName", "year", "raw","numPats","rawRev", "revEst", "revGrow")
             curPointList$raw= coData
             curPointList$rawRev= coRev
             curPointList$industryName = industryName
             curPointList$companyName = companyName
             curPointList$year = c(startYear:(startYear+numYears-1))
             curPointList$numPats = coNum
+            revGrowOut= rep(NA, length(revGrow))
+            for (k in 2:length(revGrow)){
+              revGrowOut[k]= revGrow[k]/revGrow[k-1]
+            }
+            curPointList$revGrow = revGrowOut
             #run revenue prediction
               curMod = NA
               preds = NA
@@ -277,6 +283,21 @@
                        mseREV = aggregate(successREV$seREV, list(gp=successREV$companyName), mean)$x)
       mean(errors_REV$mseREV)
       sd(errors_REV$mseREV)
+    #analysis by revenue growth
+      haveRev = pointList[!is.na(pointList$revGrow),]
+      rev_byCo = data.frame(companyName = aggregate(haveRev$numPats, list(gp=haveRev$companyName), sum)$gp,
+        avgRev = aggregate(haveRev$revGrow, list(gp=haveRev$companyName), mean)$x)
+      stats_byCo = data.frame(companyName = aggregate(pointList$numPats, list(gp=pointList$companyName), sum)$gp,
+        avgRD = aggregate(pointList$raw, list(gp=pointList$companyName), mean)$x,
+        avgNumPat = aggregate(pointList$numPats, list(gp=pointList$companyName), mean)$x)
+      REVCHECK_dat = merge(x = rev_byCo, y = stats_byCo, by = "companyName", all.x = TRUE)
+      indNames = pointList[,c("companyName", "industryName")]
+      indNames = indNames[!duplicated(indNames[,c('companyName')]),]
+      REVCHECK_dat = merge(x = REVCHECK_dat, y = indNames, by = "companyName", all.x = TRUE)
+      checkRev= lm(avgRev~avgRD+avgNumPat+factor(industryName), data = REVCHECK_dat)
+    #not aggregated
+      checkRev= lm(revGrow~raw+numPats, data = haveRev)
+      
 
 
 #model setup================================================================================
